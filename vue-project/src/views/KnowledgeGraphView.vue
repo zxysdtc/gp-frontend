@@ -11,13 +11,12 @@
     </header>
     <div class="kg-main">
       <div class="graph-visualization">
-        <!-- 交互式知识图谱可视化区域 -->
-        <p>知识图谱可视化区域 (需要集成图表库)</p>
+        <div ref="chart" style="width: 100%; height: 100%"></div>
         <div class="graph-controls">
-          <button>放大</button>
-          <button>缩小</button>
-          <button>适应屏幕</button>
-          <button>全屏</button>
+          <button @click="handleZoomIn">放大</button>
+          <button @click="handleZoomOut">缩小</button>
+          <button @click="fitView">适应屏幕</button>
+          <button @click="toggleFullscreen">全屏</button>
         </div>
       </div>
       <aside class="details-panel">
@@ -44,23 +43,212 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-
-// 示例：模拟选中的节点数据
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import * as echarts from 'echarts';
+import apiClient from '@/api/axios';
+const chart = ref(null);
+let myChart = null;
 const selectedNode = ref(null);
-// selectedNode.value = {
-//   id: '001',
-//   title: '数组',
-//   description: '基本数据存储结构，...',
-//   difficulty: 2, // 1-5
-//   type: '概念类', // 概念类, 算法类, 应用类
-//   related: [
-//     { id: '002', title: '链表' },
-//     { id: '003', title: '栈' }
-//   ]
-// };
+const nodeSizeFactor = ref(1);
 
-// TODO: 需要集成图表库（如 D3.js, ECharts, G6等）来实现可视化和交互
+// 获取知识图谱数据
+const fetchGraphData = async () => {
+  try {
+    const response = await apiClient.get('/v1/graph/entities/all',{
+      params:{
+        // id:selectedNode.value?.id,
+        // relationType:selectedNode.value?.relationType
+        id:null,
+        relationType:null
+      }
+    });
+    return processGraphData(response.data);
+  } catch (error) {
+    console.error('获取知识图谱数据失败:', error);
+    return { nodes: [], links: [] }; 
+  }
+};
+
+// 转换Neo4j数据为ECharts格式
+const processGraphData = (data) => {
+  const nodeMap = new Map();
+  const nodes = data.nodes.map(node => {
+    if (nodeMap.has(node.id)) {
+      console.warn(`发现重复节点ID: ${node.id}`);
+      return null;
+    }
+    nodeMap.set(node.id, true);
+    
+    const baseSize = 40 + (node.properties.difficulty || 0) * 5;
+    return {
+      id: node.id,
+      name: node.name.replace(/['"]/g, ''),
+      type: node.label[0],
+      properties: node.properties,
+      title: node.properties.name,
+      description: node.properties.内容,
+      difficulty: convertDifficulty(node.properties.难度),
+      baseSize: baseSize,
+      symbolSize: baseSize * nodeSizeFactor.value,
+      itemStyle: {
+        color: getNodeColor(node.label[0]),
+      }
+    };
+  }).filter(Boolean);
+
+  const links = data.links.map(rel => ({
+    source: rel.source,
+    target: rel.target,
+    label: rel.type.replace(/['"]/g, ''),
+    lineStyle: {
+      color: rel.properties.必需性 === '是' ? '#FF6B6B' : '#A0A0A0',
+      width: rel.properties.必需性 === '是' ? 2 : 1
+    }
+  }));
+
+  return { nodes, links };
+};
+
+// 新增难度转换函数
+const convertDifficulty = (text) => {
+  const levels = { '入门': 1, '中等': 3, '困难': 5 };
+  return levels[text] || 1;
+};
+
+// 节点类型颜色映射
+const getNodeColor = (type) => {
+  const colors = {
+    '概念': '#5470C6',
+    '算法': '#91CC75', 
+    '数据结构': '#FAC858'
+  };
+  return colors[type] || '#EE6666';
+};
+
+// 初始化图表
+const initChart = async () => {
+  if (!chart.value) return;
+  
+  myChart = echarts.init(chart.value);
+  const { nodes, links } = await fetchGraphData();
+
+  const option = {
+    tooltip: {},
+    series: [{
+      type: 'graph',
+      layout: 'force',
+      force: {
+        repulsion: 200,
+        edgeLength: 100
+      },
+      draggable: true,
+      data: nodes,
+      links: links,
+      label: {
+        show: true,
+        position: 'inside',
+        fontSize: 12,
+        color: '#333',
+        formatter: ({ name }) => name
+      },
+      emphasis: {
+        focus: 'adjacency',
+        label: {
+          show: true,
+          position: 'right'
+        }
+      },
+      edgeSymbol: ['none', 'arrow'],
+      edgeLabel: {
+        show: true,
+        formatter: ({ data }) => data.label,
+        fontSize: 12,
+        color: '#666',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        padding: [4, 8],
+        borderRadius: 4,
+        distance: 15
+      }
+    }]
+  };
+
+  myChart.setOption(option);
+  
+  // 点击节点事件处理
+  myChart.on('click', 'series.graph', (params) => {
+    selectedNode.value = params.data;
+  });
+};
+
+// 修改缩放方法
+const handleZoomIn = () => {
+  nodeSizeFactor.value *= 1.2;
+  updateNodeSizes();
+};
+
+const handleZoomOut = () => {
+  nodeSizeFactor.value *= 0.8;
+  updateNodeSizes();
+};
+
+// 新增节点尺寸更新方法
+const updateNodeSizes = () => {
+  if (myChart) {
+    const option = myChart.getOption();
+    option.series[0].data = option.series[0].data.map(node => ({
+      ...node,
+      symbolSize: node.baseSize * nodeSizeFactor.value
+    }));
+    myChart.setOption({
+      series: [{
+        data: option.series[0].data
+      }]
+    });
+  }
+};
+
+const fitView = () => {
+  if (myChart) {
+    myChart.dispatchAction({
+      type: 'legendScroll',
+      scrollDataIndex: 0
+    });
+    myChart.resize();
+  }
+};
+
+const toggleFullscreen = () => {
+  const element = chart.value.parentElement;
+  if (!document.fullscreenElement) {
+    if (element.requestFullscreen) {
+      element.requestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+};
+
+// 添加全屏状态监听
+onMounted(() => {
+  initChart();
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+});
+
+onBeforeUnmount(() => {
+  if (myChart) {
+    myChart.dispose();
+    myChart = null;
+  }
+  document.removeEventListener('fullscreenchange', handleFullscreenChange);
+});
+
+const handleFullscreenChange = () => {
+  if (document.fullscreenElement) {
+    myChart.resize();
+  }
+};
 </script>
 
 <style scoped>
@@ -124,14 +312,8 @@ const selectedNode = ref(null);
   border-radius: 12px;
   box-shadow: 0px 1px 3px rgba(0,0,0,0.1);
   position: relative;
-  display: flex; /* 使内部元素可布局 */
-  justify-content: center;
-  align-items: center;
-  overflow: hidden; /* 图谱可能会很大 */
-}
-
-.graph-visualization > p { /* 占位符文本 */
-  color: #9AA0A6;
+  width: 100%;
+  height: 100%;
 }
 
 .graph-controls {
