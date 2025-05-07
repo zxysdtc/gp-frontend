@@ -209,7 +209,6 @@ const handleLogout = () => {
 .content {
   flex: 1;
   padding: var(--spacing-md);
-  overflow-y: auto;
   background-color: var(--page-bg);
 }
 </style>
