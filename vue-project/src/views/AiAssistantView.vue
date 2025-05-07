@@ -1,10 +1,16 @@
 <template>
   <div class="ai-assistant-container">
     <aside class="history-panel">
-      <button class="new-chat-button">+ 新建会话</button>
+      <button class="new-chat-button" @click="createNewChat" :disabled="isLoading">
+        <span v-if="isLoading">正在创建...</span>
+        <span v-else>+ 新建会话</span>
+      </button>
       <h4>历史会话</h4>
       <ul>
-        <li v-for="chat in chatHistory" :key="chat.id" :class="{ active: chat.id === currentChatId }">
+        <li v-for="chat in chatHistory"
+            :key="chat.id"
+            :class="{ active: chat.id === currentChatId }"
+            @click="switchChat(chat.id)">
           <span>{{ chat.title }}</span>
           <small>{{ chat.time }}</small>
         </li>
@@ -17,14 +23,28 @@
         <button class="icon-button">设置</button>
       </header>
       <div class="message-area">
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
         <div v-for="(msg, index) in messages" :key="index" :class="['message-bubble', msg.sender]">
           <pre v-if="msg.type === 'code'"><code>{{ msg.content }}</code></pre>
-          <p v-else>{{ msg.content }}</p>
+          <div v-else class="markdown-content" v-html="marked.parse(msg.content)" />
         </div>
       </div>
       <footer class="input-area">
-        <textarea v-model="newMessage" placeholder="输入您的问题..." @keydown.enter.prevent="sendMessage"></textarea>
-        <button @click="sendMessage" class="send-button">发送</button>
+        <textarea 
+          v-model="newMessage" 
+          placeholder="输入您的问题..." 
+          @keydown.enter.prevent="sendMessage"
+          :disabled="isLoading">
+        </textarea>
+        <button 
+          @click="sendMessage" 
+          class="send-button"
+          :disabled="isLoading || !newMessage.trim()">
+          <span v-if="isLoading">发送中...</span>
+          <span v-else>发送</span>
+        </button>
       </footer>
     </main>
     <aside class="reference-panel" :class="{ collapsed: isReferenceCollapsed }">
@@ -54,13 +74,22 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
+import apiClient from '@/api/axios';
+import { marked } from 'marked';
 
+const userApi = {
+  createConversation : (params) => apiClient.post('/ai/dify/conversation/create', params),
+  getConversation : (params) => apiClient.get('/ai/dify/conversation/get', params),
+  sendMessage : (params) => apiClient.post('/ai/dify/conversation/sendMessage', params)
+}
+
+const newTitle = ref('新会话');
 const currentChatId = ref('chat1'); // 当前会话ID
 const chatHistory = ref([ // 示例历史会话数据
-  { id: 'chat1', title: '数据结构基础问答', time: '12:30' },
-  { id: 'chat2', title: '排序算法', time: '昨天' },
-  { id: 'chat3', title: '树结构', time: '3天前' },
+  { id: '1', title: '数据结构基础问答', time: '12:30' },
+  { id: '2', title: '排序算法', time: '昨天' },
+  { id: '3', title: '树结构', time: '3天前' },
 ]);
 
 const messages = ref([ // 示例消息数据
@@ -72,33 +101,147 @@ const messages = ref([ // 示例消息数据
 
 const newMessage = ref('');
 const isReferenceCollapsed = ref(false);
+const isLoading = ref(false); // 添加加载状态
+const errorMessage = ref(''); // 添加错误信息
 
 const currentChatTitle = computed(() => {
   const current = chatHistory.value.find(chat => chat.id === currentChatId.value);
-  return current ? current.title : '新会话';
+  return current ? current.title : newTitle.value;
 });
 
-const sendMessage = () => {
-  if (newMessage.value.trim() === '') return;
-  messages.value.push({ sender: 'user', type: 'text', content: newMessage.value });
-  // TODO: 调用 AI 接口获取回复
-  // 模拟 AI 回复
-  setTimeout(() => {
-      messages.value.push({ sender: 'ai', type: 'text', content: '正在思考...' });
-  }, 500);
-  newMessage.value = '';
+const createNewChat = async () => {
+  if (isLoading.value) return;
+  isLoading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const response = await userApi.createConversation({
+      conversationTitle: newTitle.value
+    });
+    const conversationId = response.data.id;
+    const conversationTitle = response.data.conversationTitle;
+    const conversationTime = response.data.createdAt;
+    currentChatId.value = conversationId;
+    chatHistory.value.push({
+      id: conversationId,
+      title: conversationTitle,
+      time: conversationTime
+    });
+  } catch (error) {
+    console.error("创建新会话出错:", error);
+    errorMessage.value = `创建失败：${error.message}`;
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const sendMessage = async () => {
+  if (newMessage.value.trim() === '' || isLoading.value) return;
+
+  const userMessageContent = newMessage.value;
+  messages.value.push({ sender: 'user', type: 'text', content: userMessageContent });
+  newMessage.value = ''; // 发送后立即清空输入框
+
+  isLoading.value = true;
+  errorMessage.value = '';
+
+  // 添加"正在思考"消息并获取其索引
+  const thinkingMessage = { sender: 'ai', type: 'text', content: '正在思考...' };
+  messages.value.push(thinkingMessage);
+  const thinkingMessageIndex = messages.value.length - 1;
+
+  // 滚动到底部以显示新消息和"正在思考"
+  await nextTick(); // 等待DOM更新
+  // 可能需要一个方法来滚动聊天区域到底部，例如：scrollToBottom();
+
+  // 确保我们有一个有效的、非示例的会话ID
+  if (!currentChatId.value || ['chat0', 'chat2', 'chat3'].includes(currentChatId.value)) {
+    console.error("无效的会话ID或尝试在示例会话上发送消息");
+    // 移除"正在思考"
+    if (thinkingMessageIndex >= 0 && thinkingMessageIndex < messages.value.length) {
+        messages.value.splice(thinkingMessageIndex, 1);
+    }
+    messages.value.push({ sender: 'ai', type: 'text', content: '请先创建一个新会话再发送消息。' });
+    isLoading.value = false;
+    return; // 阻止 API 调用
+  }
+
+  try {
+    // 真实API调用
+    const assistantId = 1; // TODO: 应该从配置或状态管理中获取
+
+    const response = await userApi.sendMessage({
+      conversationId: currentChatId.value,
+      assistantId: assistantId,
+      message: userMessageContent
+    });
+
+    // 移除"正在思考"消息
+    if (thinkingMessageIndex >= 0 && thinkingMessageIndex < messages.value.length) {
+        messages.value.splice(thinkingMessageIndex, 1);
+    }
+
+    // 添加 AI 的实际回复
+    const answer = response.data; // 假设响应结构是这样
+    if (answer) { // 检查是否有回复内容
+      messages.value.push({ sender: 'ai', type: 'text', content: answer });
+    } else {
+      // 如果没有回复，可以显示一个提示
+      messages.value.push({ sender: 'ai', type: 'text', content: '未能获取有效回复。' });
+    }
+
+
+  } catch (error) {
+    console.error("获取AI回复出错:", error);
+    // 移除"正在思考"消息
+     if (thinkingMessageIndex >= 0 && thinkingMessageIndex < messages.value.length) {
+        messages.value.splice(thinkingMessageIndex, 1);
+    }
+    errorMessage.value = `获取回复失败：${error?.response?.data?.message || error.message}`; // 尝试获取更详细的错误信息
+    messages.value.push({ sender: 'ai', type: 'text', content: `抱歉，获取回复时出错：${errorMessage.value} 请稍后再试。` });
+  } finally {
+    isLoading.value = false;
+    // 再次滚动到底部，确保AI的回复可见
+    await nextTick();
+    // scrollToBottom();
+  }
 };
 
 const toggleReferencePanel = () => {
     isReferenceCollapsed.value = !isReferenceCollapsed.value;
 }
 
+
+
+
+// 点击历史会话切换
+const switchChat = (chatId) => {
+    if (currentChatId.value === chatId) return;
+
+    currentChatId.value = chatId;
+    console.log(`切换到会话: ${chatId}`);
+    
+    // 处理示例会话
+    if (chatId === 'chat1') {
+         messages.value = [
+             { sender: 'ai', type: 'text', content: '欢迎提问关于数据结构的问题' },
+             { sender: 'user', type: 'text', content: '请解释链表和数组的区别' },
+             { sender: 'ai', type: 'text', content: '链表和数组的主要区别在于内存存储方式和元素访问/修改效率。\n数组使用连续内存，访问快(O(1))，插入删除慢(O(n))。\n链表使用非连续内存，通过指针链接，访问慢(O(n))，插入删除快(O(1))。' },
+             { sender: 'ai', type: 'code', content: `// 示例代码\nstruct Node {\n  int data;\n  struct Node* next;\n};` }
+         ];
+    } else if (['chat2', 'chat3'].includes(chatId)) {
+         messages.value = [{ sender: 'ai', type: 'text', content: `已切换到示例会话: ${currentChatTitle.value}` }];
+    } else {
+        messages.value = [{ sender: 'ai', type: 'text', content: `已切换到会话: ${currentChatTitle.value}` }];
+        // TODO: 加载真实会话历史
+    }
+}
 </script>
 
 <style scoped>
 .ai-assistant-container {
   display: flex;
-  height: calc(100vh - 56px); /* 假设顶部导航栏高度 */
+  height: calc(100vh - 56px);
   background-color: #F7F9FC;
 }
 
@@ -113,17 +256,30 @@ const toggleReferencePanel = () => {
   flex-shrink: 0;
 }
 
+
+
+.toggle-mock-mode input[type="checkbox"] {
+  margin-right: 5px;
+}
+
 .new-chat-button {
   width: 100%;
   padding: 10px;
-  background-color: #E7F1FD; /* 浅蓝 */
-  color: #4285F4; /* 主色 */
+  background-color: #E7F1FD;
+  color: #4285F4;
   border: 1px solid #4285F4;
   border-radius: 4px;
   font-size: 14px;
   font-weight: bold;
   cursor: pointer;
   margin-bottom: 15px;
+}
+
+.new-chat-button:disabled {
+  background-color: #f0f0f0;
+  color: #999;
+  border-color: #ddd;
+  cursor: not-allowed;
 }
 
 .history-panel h4 {
@@ -137,8 +293,8 @@ const toggleReferencePanel = () => {
   list-style: none;
   padding: 0;
   margin: 0;
-  flex-grow: 1; /* 占据剩余空间 */
-  overflow-y: auto; /* 历史记录多时滚动 */
+  flex-grow: 1;
+  overflow-y: auto;
 }
 
 .history-panel li {
@@ -151,16 +307,19 @@ const toggleReferencePanel = () => {
   justify-content: space-between;
   align-items: center;
 }
+
 .history-panel li.active {
   background-color: #E7F1FD;
   font-weight: bold;
 }
+
 .history-panel li:hover {
-  background-color: #F0F2F5; /* 悬停效果 */
+  background-color: #F0F2F5;
 }
+
 .history-panel li small {
-    font-size: 12px;
-    color: #9AA0A6;
+  font-size: 12px;
+  color: #9AA0A6;
 }
 
 .manage-button {
@@ -193,8 +352,12 @@ const toggleReferencePanel = () => {
   flex-shrink: 0;
   color: #1E293B;
 }
-.icon-button { /* 复用 HomeView 的样式或单独定义 */
-   background: none; border: none; cursor: pointer; color: #5f6368;
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #5f6368;
 }
 
 .message-area {
@@ -203,7 +366,16 @@ const toggleReferencePanel = () => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 15px; /* 消息间距 */
+  gap: 15px;
+}
+
+.error-message {
+  background-color: #fff2f0;
+  border: 1px solid #ffccc7;
+  padding: 10px;
+  border-radius: 4px;
+  color: #cf1322;
+  margin-bottom: 10px;
 }
 
 .message-bubble {
@@ -212,36 +384,37 @@ const toggleReferencePanel = () => {
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.5;
-  word-wrap: break-word; /* 长单词换行 */
+  word-wrap: break-word;
 }
 
 .message-bubble.user {
-  background-color: #E7F1FD; /* 蓝色背景 */
-  color: #1E293B; /* 深色文本 */
-  border-bottom-right-radius: 2px; /* 设计细节 */
-  align-self: flex-end; /* 右对齐 */
+  background-color: #E7F1FD;
+  color: #1E293B;
+  border-bottom-right-radius: 2px;
+  align-self: flex-end;
 }
 
 .message-bubble.ai {
-  background-color: #F0F2F5; /* 浅灰背景 */
-  color: #1E293B; /* 黑色文本 */
-  border-bottom-left-radius: 2px; /* 设计细节 */
-  align-self: flex-start; /* 左对齐 */
-}
-.message-bubble pre {
-    margin: 0;
-    white-space: pre-wrap; /* 代码换行 */
-    font-family: 'Courier New', Courier, monospace;
-    background-color: #2d2d2d; /* 深色代码块背景 */
-    color: #cccccc; /* 浅色代码文本 */
-    padding: 10px;
-    border-radius: 4px;
-    overflow-x: auto; /* 水平滚动长代码 */
-}
-.message-bubble code {
-    font-family: inherit; /* 继承 pre 的字体 */
+  background-color: #F0F2F5;
+  color: #1E293B;
+  border-bottom-left-radius: 2px;
+  align-self: flex-start;
 }
 
+.message-bubble pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #2d2d2d;
+  color: #cccccc;
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.message-bubble code {
+  font-family: inherit;
+}
 
 .input-area {
   display: flex;
@@ -256,16 +429,22 @@ const toggleReferencePanel = () => {
   padding: 10px;
   border: 1px solid #E0E0E0;
   border-radius: 4px;
-  resize: none; /* 禁止调整大小 */
+  resize: none;
   font-size: 14px;
-  min-height: 40px; /* 最小高度 */
-  max-height: 120px; /* 最大高度，可滚动 */
+  min-height: 40px;
+  max-height: 120px;
   line-height: 1.4;
   font-family: inherit;
 }
+
 .input-area textarea:focus {
   outline: none;
   border-color: #4285F4;
+}
+
+.input-area textarea:disabled {
+  background-color: #f5f5f5;
+  color: #999;
 }
 
 .send-button {
@@ -277,11 +456,17 @@ const toggleReferencePanel = () => {
   font-size: 14px;
   font-weight: bold;
   cursor: pointer;
-  align-self: flex-end; /* 对齐到文本区域底部 */
-  height: 42px; /* 与文本框高度类似 */
+  align-self: flex-end;
+  height: 42px;
 }
+
 .send-button:hover {
-    background-color: #3367D6;
+  background-color: #3367D6;
+}
+
+.send-button:disabled {
+  background-color: #A4C2F4;
+  cursor: not-allowed;
 }
 
 /* Reference Panel */
@@ -292,36 +477,38 @@ const toggleReferencePanel = () => {
   padding: 15px;
   flex-shrink: 0;
   transition: width 0.3s ease;
-  position: relative; /* 为了定位折叠按钮 */
+  position: relative;
   overflow: hidden;
 }
+
 .reference-panel.collapsed {
-    width: 40px; /* 折叠后的宽度 */
-    padding: 15px 5px; /* 调整内边距 */
+  width: 40px;
+  padding: 15px 5px;
 }
+
 .reference-panel.collapsed > div {
-    display: none; /* 隐藏内容 */
+  display: none;
 }
 
 .collapse-toggle {
-    position: absolute;
-    top: 10px;
-    left: 5px; /* 调整位置 */
-    background: none;
-    border: none;
-    font-size: 12px;
-    cursor: pointer;
-    color: #5f6368;
-    z-index: 1; /* 确保在内容上方 */
-    padding: 5px;
-    writing-mode: vertical-rl; /* 文字垂直显示 */
-    text-orientation: mixed;
-}
-.reference-panel.collapsed .collapse-toggle {
-    writing-mode: horizontal-tb; /* 折叠后水平显示 */
-    left: Calc(50% - 15px);
+  position: absolute;
+  top: 10px;
+  left: 5px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  color: #5f6368;
+  z-index: 1;
+  padding: 5px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
+.reference-panel.collapsed .collapse-toggle {
+  writing-mode: horizontal-tb;
+  left: Calc(50% - 15px);
+}
 
 .reference-panel h4 {
   font-size: 13px;
@@ -329,23 +516,59 @@ const toggleReferencePanel = () => {
   margin-bottom: 10px;
   text-transform: uppercase;
 }
+
 .reference-panel h5 {
-    font-size: 14px;
-    font-weight: bold;
-    margin: 15px 0 5px 0;
+  font-size: 14px;
+  font-weight: bold;
+  margin: 15px 0 5px 0;
 }
+
 .reference-panel ul {
   list-style: none;
-  padding-left: 10px; /* 轻微缩进 */
+  padding-left: 10px;
   margin-bottom: 15px;
 }
+
 .reference-panel li {
   font-size: 13px;
-  color: #4285F4; /* 可点击链接颜色 */
+  color: #4285F4;
   margin-bottom: 5px;
   cursor: pointer;
 }
+
 .reference-panel li:hover {
-    text-decoration: underline;
+  text-decoration: underline;
+}
+
+.markdown-content {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
+}
+
+.markdown-content h1, 
+.markdown-content h2, 
+.markdown-content h3 {
+  margin: 1em 0;
+  color: #333;
+}
+
+.markdown-content code {
+  background-color: #f5f5f5;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.markdown-content pre {
+  background-color: #f5f5f5;
+  padding: 1em;
+  overflow-x: auto;
+  border-radius: 4px;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid #ddd;
+  padding-left: 1em;
+  color: #666;
+  margin: 1em 0;
 }
 </style>

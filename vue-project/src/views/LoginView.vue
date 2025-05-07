@@ -39,7 +39,7 @@ const handleLogin = async () => {
   // 实现登录逻辑
   console.log('尝试登录:', username.value, password.value);
   try {
-    const response = await apiClient.post('/v1/auth/login', {
+    const response = await apiClient.post('/auth/login', {
       username: username.value,
       password: password.value
     });

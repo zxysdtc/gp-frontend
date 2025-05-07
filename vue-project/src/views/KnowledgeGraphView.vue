@@ -50,11 +50,13 @@ const chart = ref(null);
 let myChart = null;
 const selectedNode = ref(null);
 const nodeSizeFactor = ref(1);
+const fontSizeFactor = ref(1);
+const edgeLengthFactor = ref(1);
 
 // 获取知识图谱数据
 const fetchGraphData = async () => {
   try {
-    const response = await apiClient.get('/v1/graph/entities/all',{
+    const response = await apiClient.get('/graph/entities/all',{
       params:{
         // id:selectedNode.value?.id,
         // relationType:selectedNode.value?.relationType
@@ -92,6 +94,14 @@ const processGraphData = (data) => {
       symbolSize: baseSize * nodeSizeFactor.value,
       itemStyle: {
         color: getNodeColor(node.label[0]),
+      },
+      baseFontSize: 12,
+      label: {
+        show: true,
+        position: 'inside',
+        fontSize: 12 * fontSizeFactor.value,
+        color: '#333',
+        formatter: ({ name }) => name
       }
     };
   }).filter(Boolean);
@@ -102,7 +112,8 @@ const processGraphData = (data) => {
     label: rel.type.replace(/['"]/g, ''),
     lineStyle: {
       color: rel.properties.必需性 === '是' ? '#FF6B6B' : '#A0A0A0',
-      width: rel.properties.必需性 === '是' ? 2 : 1
+      width: rel.properties.必需性 === '是' ? 2 : 1,
+      curveness: 0.2 * edgeLengthFactor.value
     }
   }));
 
@@ -136,6 +147,7 @@ const initChart = async () => {
     tooltip: {},
     series: [{
       type: 'graph',
+      roam: true,
       layout: 'force',
       force: {
         repulsion: 200,
@@ -147,7 +159,7 @@ const initChart = async () => {
       label: {
         show: true,
         position: 'inside',
-        fontSize: 12,
+        fontSize: 30,
         color: '#333',
         formatter: ({ name }) => name
       },
@@ -183,27 +195,53 @@ const initChart = async () => {
 // 修改缩放方法
 const handleZoomIn = () => {
   nodeSizeFactor.value *= 1.2;
-  updateNodeSizes();
+  fontSizeFactor.value *= 1.2;
+  edgeLengthFactor.value *= 1.2;
+  updateAllSizes();
 };
 
 const handleZoomOut = () => {
   nodeSizeFactor.value *= 0.8;
-  updateNodeSizes();
+  fontSizeFactor.value *= 0.8;
+  edgeLengthFactor.value *= 0.8;
+  updateAllSizes();
 };
 
-// 新增节点尺寸更新方法
-const updateNodeSizes = () => {
+// 重写更新方法
+const updateAllSizes = () => {
   if (myChart) {
     const option = myChart.getOption();
+    
+    // 更新节点尺寸和字体
     option.series[0].data = option.series[0].data.map(node => ({
       ...node,
-      symbolSize: node.baseSize * nodeSizeFactor.value
+      symbolSize: node.baseSize * nodeSizeFactor.value,
+      label: {
+        ...node.label,
+        fontSize: node.baseFontSize * fontSizeFactor.value
+      }
     }));
+
+    // 更新边线配置
+    option.series[0].force.edgeLength = 100 * edgeLengthFactor.value;
+    option.series[0].links = option.series[0].links.map(link => ({
+      ...link,
+      lineStyle: {
+        ...link.lineStyle,
+        curveness: 0.2 * edgeLengthFactor.value
+      }
+    }));
+
     myChart.setOption({
       series: [{
-        data: option.series[0].data
+        data: option.series[0].data,
+        links: option.series[0].links,
+        force: option.series[0].force
       }]
     });
+    
+    // 触发重新布局
+    myChart.dispatchAction({ type: 'forceLayout' });
   }
 };
 
@@ -314,6 +352,11 @@ const handleFullscreenChange = () => {
   position: relative;
   width: 100%;
   height: 100%;
+  cursor: grab;
+}
+
+.graph-visualization:active {
+  cursor: grabbing;
 }
 
 .graph-controls {

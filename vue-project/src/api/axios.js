@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080/api', // 设置基础URL
+  baseURL: 'http://localhost:8080/api/v1', // 设置基础URL
   headers: {
     'Content-Type': 'application/json',
     // 你可以在这里添加其他全局 headers，例如认证 token
@@ -16,9 +16,13 @@ apiClient.interceptors.request.use(config => {
   }
   return config;
 }, error => {
+  if (error.response && error.response.status === 401) {
+    localStorage.removeItem('authToken');
+    // 跳转到登录页面或刷新令牌
+    window.location.href = '/login';
+  }
   return Promise.reject(error);
 });
-
 // 可选：添加响应拦截器，例如处理全局错误
 apiClient.interceptors.response.use(response => {
   return response;
@@ -28,7 +32,7 @@ apiClient.interceptors.response.use(response => {
     // 处理未授权逻辑，比如清除 token 并跳转到登录页
     localStorage.removeItem('authToken');
     // 注意：在 JS 模块中直接操作路由可能需要引入 router 实例或使用 window.location
-    // window.location.href = '/login';
+    window.location.href = '/login';
     console.error('未授权访问，请重新登录');
   }
   return Promise.reject(error);
