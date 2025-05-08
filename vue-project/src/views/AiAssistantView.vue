@@ -62,10 +62,15 @@
           :key="index"
           :class="['message-bubble', msg.sender]"
         >
-          <pre v-if="msg.type === 'code'"><code>{{ msg.content }}</code></pre>
+          <div
+            v-if="msg.type === 'code'"
+            class="code-block-wrapper"
+          >
+            <pre><code>{{ msg.content }}</code></pre>
+          </div>
           <div
             v-else
-            class="markdown-content"
+            class="markdown-body"
             v-html="marked.parse(msg.content)"
           />
         </div>
@@ -118,6 +123,7 @@
 import { ref, computed, nextTick, onMounted } from "vue";
 import apiClient from "@/api/axios";
 import { marked } from "marked";
+import 'github-markdown-css';
 
 const userApi = {
   createConversation: () =>
@@ -165,12 +171,12 @@ const createNewChat = async () => {
 
   try {
     const response = await userApi.createConversation();
-    const conversationId = response.data.id;
+    const chatId = response.data.id;
     const conversationTitle = response.data.chatName;
     const conversationTime = response.data.createdAt;
-    currentChatId.value = conversationId;
+    currentChatId.value = chatId;
     chatHistory.value.push({
-      id: conversationId,
+      id: chatId,
       title: conversationTitle,
       time: conversationTime,
     });
@@ -239,7 +245,7 @@ const sendMessage = async () => {
     const assistantId = 1; // TODO: 应该从配置或状态管理中获取
 
     const response = await userApi.sendMessage({
-      conversationId: currentChatId.value,
+      chatId: currentChatId.value,
       assistantId: assistantId,
       message: userMessageContent,
     });
@@ -363,9 +369,9 @@ const fetchConversationList = async (startPage = 1, pageSize = 10) => {
   }
 };
 
-const fetchConversationMessage = async (conversationId) => {
+const fetchConversationMessage = async (chatId) => {
   try {
-    const response = await userApi.getConversationMessage(conversationId);
+    const response = await userApi.getConversationMessage(chatId);
     console.log(response.data);
     messages.value = response.data.flatMap((item) => [
       {
@@ -583,21 +589,35 @@ onMounted(async () => {
   align-self: flex-start;
 }
 
-.message-bubble pre {
+/* 代码块容器样式 */
+.code-block-wrapper {
+  margin: 0;
+  padding: 0;
+}
+
+.code-block-wrapper pre {
   margin: 0;
   white-space: pre-wrap;
-  font-family: "Courier New", Courier, monospace;
-  background-color: #2d2d2d;
-  color: #cccccc;
-  padding: 10px;
-  border-radius: 4px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background-color: #1f2937;
+  color: #e6edf3;
+  padding: 16px;
+  border-radius: 6px;
   overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
-.message-bubble code {
+.code-block-wrapper code {
+  background-color: transparent;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
   font-family: inherit;
+  white-space: pre;
 }
 
+/* 输入区域相关样式 */
 .input-area {
   display: flex;
   padding: 15px 20px;
@@ -723,39 +743,56 @@ onMounted(async () => {
   text-decoration: underline;
 }
 
-.markdown-content {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  line-height: 1.6;
+/* GitHub Markdown CSS 自定义覆盖样式 */
+:deep(.markdown-body) {
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: inherit !important;
+  box-shadow: none !important;
+  max-width: 100% !important;
 }
 
-.markdown-content h1,
-.markdown-content h2,
-.markdown-content h3 {
-  margin: 1em 0;
-  color: #333;
+:deep(.markdown-body pre) {
+  background-color: #1f2937 !important;
+  border-radius: 6px !important;
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
 }
 
-.markdown-content code {
-  background-color: #f5f5f5;
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
+:deep(.markdown-body code) {
+  background-color: rgba(175, 184, 193, 0.2) !important;
+  color: #c7254e !important;
+  border-radius: 3px !important;
 }
 
-.markdown-content pre {
-  background-color: #f5f5f5;
-  padding: 1em;
+:deep(.markdown-body pre code) {
+  background-color: transparent !important;
+  color: #d1d5db !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+:deep(.markdown-body h1:first-child),
+:deep(.markdown-body h2:first-child),
+:deep(.markdown-body h3:first-child) {
+  margin-top: 0 !important;
+}
+
+:deep(.markdown-body table) {
+  display: block;
+  width: 100%;
   overflow-x: auto;
-  border-radius: 4px;
 }
 
-.markdown-content blockquote {
-  border-left: 4px solid #ddd;
-  padding-left: 1em;
-  color: #666;
-  margin: 1em 0;
+:deep(.markdown-body img) {
+  max-width: 100%;
+  height: auto;
 }
 
-/*  在现有的样式中添加 */
 .chat-item-right {
   display: flex;
   align-items: center;
