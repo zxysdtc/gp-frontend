@@ -1,11 +1,12 @@
 <template>
   <div class="main-layout">
     <!-- 侧边栏 -->
-    <div class="sidebar">
+    <div class="sidebar" :style="{ width: isCollapsed ? '64px' : 'var(--sidebar-width)' }">
       <div class="logo-container">
-        <h2 class="logo-text">知识图谱系统</h2>
+        <h2 class="logo-text" v-if="!isCollapsed">知识图谱系统</h2>
       </div>
       <div class="sidebar-menu">
+      
         <el-menu
           :default-active="activeMenu"
           class="sidebar-menu-list"
@@ -13,6 +14,7 @@
           text-color="#ffffff"
           active-text-color="#ffffff"
           router
+          :collapse="isCollapsed"
         >
           <el-menu-item index="/home">
             <el-icon><HomeFilled /></el-icon>
@@ -43,6 +45,11 @@
             <span>帮助中心</span>
           </el-menu-item>
         </el-menu>
+      </div>
+      <div class="collapse-button" @click="toggleCollapse">
+        <el-icon :size="20">
+          <component :is="isCollapsed ? 'ArrowRightBold' : 'ArrowLeftBold'" />
+        </el-icon>
       </div>
     </div>
 
@@ -96,11 +103,14 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ArrowLeftBold, ArrowRightBold } from '@element-plus/icons-vue'
 
 // 定义响应式数据
 const searchQuery = ref('')
 const activeMenu = ref('')
 const router = useRouter()
+const isCollapsed = ref(false)
+
 // 获取路由信息
 const route = useRoute()
 
@@ -126,6 +136,10 @@ const handleLogout = () => {
   localStorage.removeItem('user')
   router.push('/login')
 }
+
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value
+}
 </script>
 
 <style scoped>
@@ -142,6 +156,7 @@ const handleLogout = () => {
   color: var(--text-white);
   display: flex;
   flex-direction: column;
+  transition: width 0.3s ease;
 }
 
 .logo-container {
@@ -210,5 +225,19 @@ const handleLogout = () => {
   flex: 1;
   padding: var(--spacing-md);
   background-color: var(--page-bg);
+}
+
+.collapse-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-md);
+  cursor: pointer;
+  background-color: var(--sidebar-bg);
+  border-top: 1px solid var(--border-color);
+}
+
+.collapse-button:hover {
+  background-color: var(--sidebar-hover-bg);
 }
 </style>
