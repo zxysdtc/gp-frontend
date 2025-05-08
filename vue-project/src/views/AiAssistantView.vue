@@ -40,8 +40,18 @@
     </aside>
     <main class="chat-main">
       <header class="chat-header">
-        <span>当前会话：{{ currentChatTitle }}</span>
-        <button class="icon-button">设置</button>
+        <span v-if="!isEditingTitle">当前会话：{{ currentChatTitle }}</span>
+        <input
+          v-else
+          v-model="editingTitle"
+          @keydown.enter="saveTitle"
+          @blur="saveTitle"
+          class="title-input"
+        />
+        <button class="icon-button" @click="toggleEditTitle">
+          <span v-if="!isEditingTitle">✏️</span>
+          <span v-else>保存</span>
+        </button>
       </header>
       <div class="message-area">
         <div v-if="errorMessage" class="error-message">
@@ -110,21 +120,22 @@ import apiClient from "@/api/axios";
 import { marked } from "marked";
 
 const userApi = {
-  createConversation: (params) =>
-    apiClient.post("/ai/dify/conversation/create", params),
+  createConversation: () =>
+    apiClient.post("/conversation/create"),
   getConversation: (params) =>
-    apiClient.get("/ai/dify/conversation/get", params),
+    apiClient.get("/conversation/get", params),
   sendMessage: (params) =>
-    apiClient.post("/ai/dify/conversation/sendMessage", params),
-  // 修改这一行，确保与后端接口匹配
+    apiClient.post("/conversation/sendMessage", params),
   getConversationList: (startPage, pageSize) =>
     apiClient.get(
-      `/ai/dify/conversation/list?startPage=${startPage}&pageSize=${pageSize}`
+      `/conversation/list?startPage=${startPage}&pageSize=${pageSize}`
     ),
-  deleteConversation: (conversationId) =>
-    apiClient.delete(`/ai/dify/conversation/delete?conversationId=${conversationId}`),
-  getConversationMessage: (conversationId) =>
-    apiClient.get(`/ai/dify/conversation/get?conversationId=${conversationId}`),  
+  deleteConversation: (chatId) =>
+    apiClient.delete(`/conversation/delete?chatId=${chatId}`),
+  getConversationMessage: (chatId) =>
+    apiClient.get(`/message/list?chatId=${chatId}`),  
+  renameConversation: (chatId, newName) =>
+    apiClient.post(`/conversation/rename?chatId=${chatId}&newName=${newName}`),
 };
 
 const newTitle = ref("新会话");
@@ -137,6 +148,8 @@ const isReferenceCollapsed = ref(false);
 const isLoading = ref(false); // 添加加载状态
 const errorMessage = ref(""); // 添加错误信息
 const isManagingChats = ref(false);
+const isEditingTitle = ref(false);
+const editingTitle = ref("");
 
 const currentChatTitle = computed(() => {
   const current = chatHistory.value.find(
@@ -151,11 +164,9 @@ const createNewChat = async () => {
   errorMessage.value = "";
 
   try {
-    const response = await userApi.createConversation({
-      conversationTitle: newTitle.value,
-    });
+    const response = await userApi.createConversation();
     const conversationId = response.data.id;
-    const conversationTitle = response.data.conversationTitle;
+    const conversationTitle = response.data.chatName;
     const conversationTime = response.data.createdAt;
     currentChatId.value = conversationId;
     chatHistory.value.push({
@@ -336,7 +347,7 @@ const fetchConversationList = async (startPage = 1, pageSize = 10) => {
     if (response.data && Array.isArray(response.data)) {
       chatHistory.value = response.data.map((item) => ({
         id: item.id,
-        title: item.conversationTitle,
+        title: item.chatName,
         time: item.createdAt,
       }));
       // 如果有会话，默认选中第一个
@@ -371,6 +382,29 @@ const fetchConversationMessage = async (conversationId) => {
   } catch (error) {
     console.error("获取会话消息失败:", error);
     errorMessage.value = `获取会话消息失败: ${error.message}`;
+  }
+};
+
+const toggleEditTitle = () => {
+  isEditingTitle.value = !isEditingTitle.value;
+  if (isEditingTitle.value) {
+    editingTitle.value = currentChatTitle.value;
+  }
+};
+
+const saveTitle = async () => {
+  if (editingTitle.value.trim() === "") return;
+
+  try {
+    await userApi.renameConversation(currentChatId.value, editingTitle.value);
+    const chat = chatHistory.value.find((chat) => chat.id === currentChatId.value);
+    if (chat) {
+      chat.title = editingTitle.value;
+    }
+    isEditingTitle.value = false;
+  } catch (error) {
+    console.error("重命名会话失败:", error);
+    errorMessage.value = `重命名会话失败: ${error.message}`;
   }
 };
 
@@ -750,5 +784,18 @@ onMounted(async () => {
 /* 管理模式下的会话样式调整 */
 .history-panel li.managing {
   cursor: default;
+}
+
+.title-input {
+  padding: 5px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 200px;
+}
+
+.title-input:focus {
+  outline: none;
+  border-color: #4285f4;
 }
 </style>
