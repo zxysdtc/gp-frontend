@@ -126,22 +126,20 @@ import { marked } from "marked";
 import 'github-markdown-css';
 
 const userApi = {
-  createConversation: () =>
-    apiClient.post("/conversation/create"),
+  createConversation: (assistantId) =>
+    apiClient.post("/chat/create", { assistantId }),
   getConversation: (params) =>
-    apiClient.get("/conversation/get", params),
+    apiClient.get("/chat/get", params),
   sendMessage: (params) =>
-    apiClient.post("/conversation/sendMessage", params),
-  getConversationList: (startPage, pageSize) =>
-    apiClient.get(
-      `/conversation/list?startPage=${startPage}&pageSize=${pageSize}`
-    ),
-  deleteConversation: (chatId) =>
-    apiClient.delete(`/conversation/delete?chatId=${chatId}`),
-  getConversationMessage: (chatId) =>
-    apiClient.get(`/message/list?chatId=${chatId}`),  
-  renameConversation: (chatId, newName) =>
-    apiClient.post(`/conversation/rename?chatId=${chatId}&newName=${newName}`),
+    apiClient.post("/chat/sendMessage", params),
+  getConversationList: (assistantId, lastChatId) =>
+    apiClient.get(`/chat/list?assistantId=${assistantId}${lastChatId ? `&lastChatId=${lastChatId}` : ''}`),
+  deleteConversation: (assistantId, chatId) =>
+    apiClient.delete(`/chat/delete?assistantId=${assistantId}&chat_id=${chatId}`),
+  getConversationMessage: (assistantId, conversationId, firstId, limit) =>
+    apiClient.get(`/chat/messageList?assistantId=${assistantId}&conversationId=${conversationId}${firstId ? `&firstId=${firstId}` : ''}${limit ? `&limit=${limit}` : ''}`),
+  renameConversation: (assistantId, chatId, newName) =>
+    apiClient.post(`/chat/rename?assistantId=${assistantId}&chat_id=${chatId}&newName=${newName}`),
 };
 
 const newTitle = ref("新会话");
@@ -157,6 +155,8 @@ const isManagingChats = ref(false);
 const isEditingTitle = ref(false);
 const editingTitle = ref("");
 
+const assistantId = 1; // 添加助手ID变量，可以从配置或状态中获取
+
 const currentChatTitle = computed(() => {
   const current = chatHistory.value.find(
     (chat) => chat.id === currentChatId.value
@@ -170,10 +170,10 @@ const createNewChat = async () => {
   errorMessage.value = "";
 
   try {
-    const response = await userApi.createConversation();
+    const response = await userApi.createConversation(assistantId);
     const chatId = response.data.id;
-    const conversationTitle = response.data.chatName;
-    const conversationTime = response.data.createdAt;
+    const conversationTitle = response.data.name;
+    const conversationTime = response.data.created_at;
     currentChatId.value = chatId;
     chatHistory.value.push({
       id: chatId,
@@ -187,10 +187,11 @@ const createNewChat = async () => {
     isLoading.value = false;
   }
 };
-// 在其他函数旁边添加
+
 const toggleManageMode = () => {
   isManagingChats.value = !isManagingChats.value;
 };
+
 const sendMessage = async () => {
   if (newMessage.value.trim() === "" || isLoading.value) return;
 
@@ -241,9 +242,6 @@ const sendMessage = async () => {
   }
 
   try {
-    // 真实API调用
-    const assistantId = 1; // TODO: 应该从配置或状态管理中获取
-
     const response = await userApi.sendMessage({
       chatId: currentChatId.value,
       assistantId: assistantId,
@@ -299,10 +297,9 @@ const sendMessage = async () => {
 const toggleReferencePanel = () => {
   isReferenceCollapsed.value = !isReferenceCollapsed.value;
 };
-// 在其他函数旁边添加
+
 const deleteChat = async (chatId) => {
   try {
-    // 这里可以添加删除前的确认
     if (!confirm("确定要删除这个会话吗？")) {
       return;
     }
@@ -310,9 +307,8 @@ const deleteChat = async (chatId) => {
     isLoading.value = true;
     errorMessage.value = "";
 
-    // TODO: 替换为真实的API调用
-    例如: await userApi.deleteConversation(chatId);
-
+    await userApi.deleteConversation(assistantId, chatId);
+    
     // 更新本地状态
     chatHistory.value = chatHistory.value.filter((chat) => chat.id !== chatId);
 
@@ -332,7 +328,7 @@ const deleteChat = async (chatId) => {
     isLoading.value = false;
   }
 };
-// 点击历史会话切换
+
 const switchChat = (chatId) => {
   if (currentChatId.value === chatId) return;
 
@@ -343,20 +339,22 @@ const switchChat = (chatId) => {
   fetchConversationMessage(chatId);
 };
 
-// 在chatHistory定义后添加获取会话列表的函数
 const fetchConversationList = async (startPage = 1, pageSize = 10) => {
   try {
     isLoading.value = true;
     errorMessage.value = "";
-    // 修改调用方式，直接传递startPage参数
-    const response = await userApi.getConversationList(startPage, pageSize);
-    if (response.data && Array.isArray(response.data)) {
-      chatHistory.value = response.data.map((item) => ({
+    
+    // 注意：API参数已变更，不再需要startPage和pageSize
+    const response = await userApi.getConversationList(assistantId);
+    
+    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      chatHistory.value = response.data.data.map((item) => ({
         id: item.id,
-        title: item.chatName,
-        time: item.createdAt,
+        title: item.name,
+        time: new Date(item.createdAt * 1000).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        introduction: item.introduction,
       }));
-      // 如果有会话，默认选中第一个
+      
       if (chatHistory.value.length > 0) {
         currentChatId.value = chatHistory.value[0].id;
       }
@@ -371,20 +369,27 @@ const fetchConversationList = async (startPage = 1, pageSize = 10) => {
 
 const fetchConversationMessage = async (chatId) => {
   try {
-    const response = await userApi.getConversationMessage(chatId);
-    console.log(response.data);
-    messages.value = response.data.flatMap((item) => [
-      {
-        sender: "user", // 用户消息
-        type: "text", // 默认类型为文本
-        content: item.userMessage, // 用户消息内容
-      },
-      {
-        sender: "ai", // AI 回复
-        type: "text", // 默认类型为文本
-        content: item.aiMessage, // AI 回复内容
-      },
-    ]);
+    const response = await userApi.getConversationMessage(assistantId, chatId);
+    
+    // 根据API响应结构调整处理方式
+    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      messages.value = response.data.data.flatMap((item) => {
+        const messages = [];
+        
+        messages.push({
+          sender: "user",
+          type: "text",
+          content: item.query,
+        });
+
+        messages.push({
+          sender: "ai",
+          type: "text",
+          content: item.answer,
+        });
+        return messages;
+      });
+    }
   } catch (error) {
     console.error("获取会话消息失败:", error);
     errorMessage.value = `获取会话消息失败: ${error.message}`;
@@ -402,7 +407,8 @@ const saveTitle = async () => {
   if (editingTitle.value.trim() === "") return;
 
   try {
-    await userApi.renameConversation(currentChatId.value, editingTitle.value);
+    await userApi.renameConversation(assistantId, currentChatId.value, editingTitle.value);
+    
     const chat = chatHistory.value.find((chat) => chat.id === currentChatId.value);
     if (chat) {
       chat.title = editingTitle.value;

@@ -5,7 +5,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
     // 你可以在这里添加其他全局 headers，例如认证 token
-  }
+  },
 });
 
 // 可选：添加请求拦截器，例如自动附加 Token
