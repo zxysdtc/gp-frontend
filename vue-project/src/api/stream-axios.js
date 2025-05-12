@@ -12,19 +12,9 @@ const streamApiClient = axios.create({
     "X-Requested-With": "XMLHttpRequest",
     Connection: "keep-alive",
   },
-  // 关键配置：启用流式响应处理
-  responseType: "stream",
-  // 较长的超时时间
+  // 浏览器环境设置
+  responseType: "text", // 使用'text'而不是'stream'
   timeout: 120000, // 2分钟
-  // HTTP/2支持
-  httpAgent: new (require("http").Agent)({
-    keepAlive: true,
-    keepAliveMsecs: 30000, // 保持连接打开30秒
-  }),
-  httpsAgent: new (require("https").Agent)({
-    keepAlive: true,
-    keepAliveMsecs: 30000,
-  }),
 });
 
 // 请求拦截器 - 添加认证token

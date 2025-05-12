@@ -131,7 +131,7 @@ const userApi = {
   getConversation: (params) =>
     apiClient.get("/chat/get", params),
   sendMessage: (params) =>
-    apiClient.post("/chat/sendMessage", params),
+    apiClient.post("/chat/sse", params),
   getConversationList: (assistantId, lastChatId) =>
     apiClient.get(`/chat/list?assistantId=${assistantId}${lastChatId ? `&lastChatId=${lastChatId}` : ''}`),
   deleteConversation: (assistantId, chatId) =>
@@ -206,78 +206,61 @@ const sendMessage = async () => {
   isLoading.value = true;
   errorMessage.value = "";
 
-  // 添加"正在思考"消息并获取其索引
-  const thinkingMessage = {
-    sender: "ai",
-    type: "text",
-    content: "正在思考...",
-  };
-  messages.value.push(thinkingMessage);
-  const thinkingMessageIndex = messages.value.length - 1;
 
   // 滚动到底部以显示新消息和"正在思考"
   await nextTick(); // 等待DOM更新
   // 可能需要一个方法来滚动聊天区域到底部，例如：scrollToBottom();
 
   // 确保我们有一个有效的、非示例的会话ID
-  if (
-    !currentChatId.value ||
-    ["chat0", "chat2", "chat3"].includes(currentChatId.value)
-  ) {
-    console.error("无效的会话ID或尝试在示例会话上发送消息");
-    // 移除"正在思考"
-    if (
-      thinkingMessageIndex >= 0 &&
-      thinkingMessageIndex < messages.value.length
-    ) {
-      messages.value.splice(thinkingMessageIndex, 1);
-    }
-    messages.value.push({
-      sender: "ai",
-      type: "text",
-      content: "请先创建一个新会话再发送消息。",
-    });
-    isLoading.value = false;
-    return; // 阻止 API 调用
-  }
 
   try {
-    const response = await userApi.sendMessage({
+/*     const response = await userApi.sendMessage({
       chatId: currentChatId.value,
       assistantId: assistantId,
       message: userMessageContent,
+    }); */
+    const response = await fetch("http://localhost:8080/api/v1/chat/sse",{
+      method: "POST",
+      body: JSON.stringify({
+        chatId: currentChatId.value,
+        assistantId: assistantId,
+        message: userMessageContent,
+      }),
+      headers:{
+        "Authorization": "Bearer " + localStorage.getItem("authToken"),
+        "Content-Type": "application/json",
+      }
     });
-
-    // 移除"正在思考"消息
-    if (
-      thinkingMessageIndex >= 0 &&
-      thinkingMessageIndex < messages.value.length
-    ) {
-      messages.value.splice(thinkingMessageIndex, 1);
-    }
-
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
+    let answer='';
+    const aiMessageIndex = messages.value.push({
+      sender: "ai",
+      type: "text",
+      content: "answer",
+    })-1;
     // 添加 AI 的实际回复
-    const answer = response.data; // 假设响应结构是这样
-    if (answer) {
-      // 检查是否有回复内容
-      messages.value.push({ sender: "ai", type: "text", content: answer });
-    } else {
-      // 如果没有回复，可以显示一个提示
-      messages.value.push({
-        sender: "ai",
-        type: "text",
-        content: "未能获取有效回复。",
-      });
+    while (!done) {
+      const { done: doneRead, value } = await reader.read();
+      if (value) {
+        const text = decoder.decode(value, { stream: true });
+        text.split("\n").forEach(line => {
+          line = line.trim();
+          if (line.startsWith("data:")) {
+            const data = line.slice(5);
+            console.log("answer:",data);
+            answer += data;
+            messages.value[aiMessageIndex].content = answer;
+          }
+        });
+      }
+      if (doneRead) {
+        done = true;
+      }
     }
   } catch (error) {
     console.error("获取AI回复出错:", error);
-    // 移除"正在思考"消息
-    if (
-      thinkingMessageIndex >= 0 &&
-      thinkingMessageIndex < messages.value.length
-    ) {
-      messages.value.splice(thinkingMessageIndex, 1);
-    }
     errorMessage.value = `获取回复失败：${
       error?.response?.data?.message || error.message
     }`; // 尝试获取更详细的错误信息
