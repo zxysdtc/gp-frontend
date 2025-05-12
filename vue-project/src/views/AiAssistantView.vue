@@ -41,16 +41,19 @@
     <main class="chat-main">
       <header class="chat-header">
         <span v-if="!isEditingTitle">当前会话：{{ currentChatTitle }}</span>
-        <input
-          v-else
-          v-model="editingTitle"
-          @keydown.enter="saveTitle"
-          @blur="saveTitle"
-          class="title-input"
-        />
+        <div v-else class="title-edit-container" style="position: relative; flex: 1; margin-right: 5px;">
+          <input
+            v-model="editingTitle"
+            @keydown.enter="saveTitle"
+            class="title-input"
+            style="width: 100%; padding-right: 5px; margin-right: 5px;"
+          />
+          <button class="star-button" @click="autoRenameTitle" style="position: absolute; right: 1px; top: 50%; transform: translateY(-50%); z-index: 2; background-color: white;">✧</button>
+        </div>
         <button class="icon-button" @click="toggleEditTitle">
           <span v-if="!isEditingTitle">✏️</span>
-          <span v-else>保存</span>
+          
+          <span v-else @click="saveTitle">保存</span>
         </button>
       </header>
       <div class="message-area">
@@ -63,13 +66,30 @@
           :class="['message-bubble', msg.sender]"
         >
           <div v-if="msg.type === 'code'" class="code-block-wrapper">
-            <pre><code>{{ msg.content }}</code></pre>
+            <pre>
+              <div class="code-copy-button" @click="copyMessage(msg.content)">
+                <span>⎘</span>
+              </div>
+              <code>{{ msg.content }}</code>
+            </pre>
           </div>
           <div
             v-else
             class="markdown-body"
             v-html="marked.parse(msg.content)"
           />
+          <div class="message-actions">
+            <button class="copy-button" @click="copyMessage(msg.content)">
+              <span>⎘</span>
+            </button>
+            <button
+              v-if="msg.sender === 'ai'"
+              class="regenerate-button"
+              @click="regenerateMessage(index)"
+            >
+              <span>↻</span>
+            </button>
+          </div>
         </div>
       </div>
       <footer class="input-area">
@@ -123,8 +143,8 @@ import { marked } from "marked";
 import "github-markdown-css";
 
 const userApi = {
-  createConversation: (assistantId) =>
-    apiClient.post("/chat/create", { assistantId }),
+  getParameters: (assistantId) =>
+    apiClient.get(`/chat/parameters?assistantId=${assistantId}`),
   getConversation: (params) => apiClient.get("/chat/get", params),
   sendMessage: (params) => apiClient.post("/chat/sse", params),
   getConversationList: (assistantId, lastChatId) =>
@@ -147,6 +167,10 @@ const userApi = {
     apiClient.post(
       `/chat/rename?assistantId=${assistantId}&chat_id=${chatId}&newName=${newName}`
     ),
+  autoRenameConversation: (assistantId, chatId) =>
+    apiClient.post(
+      `/chat/rename?assistantId=${assistantId}&chat_id=${chatId}`
+    ),
 };
 
 const newTitle = ref("新会话");
@@ -161,6 +185,7 @@ const errorMessage = ref(""); // 添加错误信息
 const isManagingChats = ref(false);
 const isEditingTitle = ref(false);
 const editingTitle = ref("");
+const newChatId = ref(0);
 
 const assistantId = 1; // 添加助手ID变量，可以从配置或状态中获取
 
@@ -175,18 +200,23 @@ const createNewChat = async () => {
   if (isLoading.value) return;
   isLoading.value = true;
   errorMessage.value = "";
-
+  
   try {
-    const response = await userApi.createConversation(assistantId);
-    const chatId = response.data.id;
-    const conversationTitle = response.data.name;
-    const conversationTime = response.data.created_at;
-    currentChatId.value = chatId;
-    chatHistory.value.push({
-      id: chatId,
-      title: conversationTitle,
-      time: conversationTime,
+    const response = await userApi.getParameters(assistantId);
+    const openingStatement = response.data.openingStatement;
+    console.log(`openingStatement: ${openingStatement}`);
+    chatHistory.value.unshift({
+      id: newChatId.value,
+      title: "新会话",
+      time: new Date().toLocaleDateString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      introduction: openingStatement,
     });
+    switchChat(newChatId.value);
   } catch (error) {
     console.error("创建新会话出错:", error);
     errorMessage.value = `创建失败：${error.message}`;
@@ -323,15 +353,13 @@ const deleteChat = async (chatId) => {
 
 const switchChat = (chatId) => {
   if (currentChatId.value === chatId) return;
-
   currentChatId.value = chatId;
   console.log(`切换到会话: ${chatId}`);
-
   // 处理示例会话
   fetchConversationMessage(chatId);
 };
 
-const fetchConversationList = async (startPage = 1, pageSize = 10) => {
+const fetchConversationList = async () => {
   try {
     isLoading.value = true;
     errorMessage.value = "";
@@ -370,6 +398,19 @@ const fetchConversationList = async (startPage = 1, pageSize = 10) => {
 
 const fetchConversationMessage = async (chatId) => {
   try {
+    console.log("chatId:", chatId);
+    console.log("chatHistory.value:", chatHistory.value);
+    const introduction = chatHistory.value.find(chat => chat.id === chatId).introduction;
+    console.log(`introduction: ${introduction}`);
+    messages.value = [];
+    messages.value.push({
+      sender: "ai",
+      type: "text",
+      content: introduction,
+    });
+    if(chatId == newChatId.value){
+      return;
+    }
     const response = await userApi.getConversationMessage(assistantId, chatId);
 
     // 根据API响应结构调整处理方式
@@ -378,21 +419,18 @@ const fetchConversationMessage = async (chatId) => {
       response.data.data &&
       Array.isArray(response.data.data)
     ) {
-      messages.value = response.data.data.flatMap((item) => {
-        const messages = [];
-
-        messages.push({
+      response.data.data.flatMap((item) => {
+        messages.value.push({
           sender: "user",
           type: "text",
           content: item.query,
         });
 
-        messages.push({
+        messages.value.push({
           sender: "ai",
           type: "text",
           content: item.answer,
         });
-        return messages;
       });
     }
   } catch (error) {
@@ -431,9 +469,61 @@ const saveTitle = async () => {
   }
 };
 
+const autoRenameTitle = async () => {
+  if (editingTitle.value.trim() === "") return;
+
+  try {
+    const response = await userApi.autoRenameConversation(
+      assistantId,
+      currentChatId.value,
+    );
+
+    const chat = chatHistory.value.find(
+      (chat) => chat.id === currentChatId.value
+    );
+    if (chat) {
+      chat.title = response.data.name;
+    }
+    isEditingTitle.value = false;
+  } catch (error) {
+    console.error("重命名会话失败:", error);
+    errorMessage.value = `重命名会话失败: ${error.message}`;
+  }
+};
+
+const copyMessage = (content) => {
+  navigator.clipboard.writeText(content)
+  .then(() => {
+    const notification = document.createElement('div');
+    notification.textContent = '已复制到剪贴板';
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.left = '50%';
+    notification.style.transform = 'translateX(-50%)';
+    notification.style.backgroundColor = '#f0f0f0';
+    notification.style.color = '#000';
+    notification.style.padding = '10px 20px';
+    notification.style.borderRadius = '4px';
+    notification.style.zIndex = '1000';
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+      document.body.removeChild(notification);
+    }, 1000);
+  })
+  .catch((err) => {
+    console.error("复制失败:", err);
+  });
+};
+
+const regenerateMessage = (index) => {
+  // 这里可以添加重新回答的逻辑
+  console.log("重新回答消息:", index);
+};
+
 // 组件加载时获取会话列表
 onMounted(async () => {
-  await fetchConversationList(1, 10);
+  await fetchConversationList();
   if (currentChatId.value) {
     fetchConversationMessage(currentChatId.value);
   }
@@ -571,7 +661,7 @@ onMounted(async () => {
   overflow-y: auto; /* 允许消息区域内部滚动 */
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 30px; /* 增加消息间距 */
 }
 
 .error-message {
@@ -584,12 +674,20 @@ onMounted(async () => {
 }
 
 .message-bubble {
+  position: relative;
   max-width: 70%;
   padding: 10px 15px;
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
+  margin-bottom: 15px; /* 增加底部间距给按钮 */
+}
+
+.message-bubble:hover .message-actions {
+  display: flex;
+  opacity: 1;
+  transition: opacity 1s ease;
 }
 
 .message-bubble.user {
@@ -608,6 +706,7 @@ onMounted(async () => {
 
 /* 代码块容器样式 */
 .code-block-wrapper {
+  position: relative;
   margin: 0;
   padding: 0;
 }
@@ -632,6 +731,24 @@ onMounted(async () => {
   border-radius: 0;
   font-family: inherit;
   white-space: pre;
+}
+
+.code-copy-button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #e6edf3;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  display: none;
+}
+
+.code-block-wrapper:hover .code-copy-button {
+  display: block;
 }
 
 /* 输入区域相关样式 */
@@ -851,5 +968,45 @@ onMounted(async () => {
 .title-input:focus {
   outline: none;
   border-color: #4285f4;
+}
+
+.message-actions {
+  display: flex;
+  position: absolute;
+  bottom: -25px;
+  left: 0;
+  gap: 10px;
+  opacity: 1; /* 始终显示 */
+}
+
+.copy-button,
+.regenerate-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  font-size: 16px; /* 增加图标大小 */
+  padding: 0;
+}
+
+.copy-button:hover,
+.regenerate-button:hover {
+  color: #4285f4;
+}
+
+.title-edit-container {
+  display: flex;
+  align-items: center;
+  margin-right: 5px;
+}
+
+.star-button {
+  background: none;
+  border: none;
+  color: #f8c01a;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 5px;
+  margin-right: 5px;
 }
 </style>
