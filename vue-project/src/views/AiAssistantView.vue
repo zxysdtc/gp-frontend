@@ -62,10 +62,7 @@
           :key="index"
           :class="['message-bubble', msg.sender]"
         >
-          <div
-            v-if="msg.type === 'code'"
-            class="code-block-wrapper"
-          >
+          <div v-if="msg.type === 'code'" class="code-block-wrapper">
             <pre><code>{{ msg.content }}</code></pre>
           </div>
           <div
@@ -123,23 +120,33 @@
 import { ref, computed, nextTick, onMounted } from "vue";
 import apiClient from "@/api/axios";
 import { marked } from "marked";
-import 'github-markdown-css';
+import "github-markdown-css";
 
 const userApi = {
   createConversation: (assistantId) =>
     apiClient.post("/chat/create", { assistantId }),
-  getConversation: (params) =>
-    apiClient.get("/chat/get", params),
-  sendMessage: (params) =>
-    apiClient.post("/chat/sse", params),
+  getConversation: (params) => apiClient.get("/chat/get", params),
+  sendMessage: (params) => apiClient.post("/chat/sse", params),
   getConversationList: (assistantId, lastChatId) =>
-    apiClient.get(`/chat/list?assistantId=${assistantId}${lastChatId ? `&lastChatId=${lastChatId}` : ''}`),
+    apiClient.get(
+      `/chat/list?assistantId=${assistantId}${
+        lastChatId ? `&lastChatId=${lastChatId}` : ""
+      }`
+    ),
   deleteConversation: (assistantId, chatId) =>
-    apiClient.delete(`/chat/delete?assistantId=${assistantId}&chat_id=${chatId}`),
+    apiClient.delete(
+      `/chat/delete?assistantId=${assistantId}&chat_id=${chatId}`
+    ),
   getConversationMessage: (assistantId, conversationId, firstId, limit) =>
-    apiClient.get(`/chat/messageList?assistantId=${assistantId}&conversationId=${conversationId}${firstId ? `&firstId=${firstId}` : ''}${limit ? `&limit=${limit}` : ''}`),
+    apiClient.get(
+      `/chat/messageList?assistantId=${assistantId}&conversationId=${conversationId}${
+        firstId ? `&firstId=${firstId}` : ""
+      }${limit ? `&limit=${limit}` : ""}`
+    ),
   renameConversation: (assistantId, chatId, newName) =>
-    apiClient.post(`/chat/rename?assistantId=${assistantId}&chat_id=${chatId}&newName=${newName}`),
+    apiClient.post(
+      `/chat/rename?assistantId=${assistantId}&chat_id=${chatId}&newName=${newName}`
+    ),
 };
 
 const newTitle = ref("新会话");
@@ -206,51 +213,53 @@ const sendMessage = async () => {
   isLoading.value = true;
   errorMessage.value = "";
 
-
   // 滚动到底部以显示新消息和"正在思考"
   await nextTick(); // 等待DOM更新
   // 可能需要一个方法来滚动聊天区域到底部，例如：scrollToBottom();
 
-  // 确保我们有一个有效的、非示例的会话ID
-
   try {
-/*     const response = await userApi.sendMessage({
-      chatId: currentChatId.value,
-      assistantId: assistantId,
-      message: userMessageContent,
-    }); */
-    const response = await fetch("http://localhost:8080/api/v1/chat/sse",{
+    const response = await fetch("http://localhost:8080/api/v1/chat/sse", {
       method: "POST",
       body: JSON.stringify({
         chatId: currentChatId.value,
         assistantId: assistantId,
         message: userMessageContent,
       }),
-      headers:{
-        "Authorization": "Bearer " + localStorage.getItem("authToken"),
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("authToken"),
         "Content-Type": "application/json",
-      }
+      },
     });
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let done = false;
-    let answer='';
-    const aiMessageIndex = messages.value.push({
-      sender: "ai",
-      type: "text",
-      content: "answer",
-    })-1;
+    let answer = "";
+    const aiMessageIndex =
+      messages.value.push({
+        sender: "ai",
+        type: "text",
+        content: "", // 初始化为空
+      }) - 1;
+
     // 添加 AI 的实际回复
     while (!done) {
       const { done: doneRead, value } = await reader.read();
       if (value) {
         const text = decoder.decode(value, { stream: true });
-        text.split("\n").forEach(line => {
-          line = line.trim();
+        text.split("\n").forEach((line) => {
           if (line.startsWith("data:")) {
-            const data = line.slice(5);
-            console.log("answer:",data);
+            // 提取 data 后面的内容
+            let encoded = line.slice(5);
+            console.log("encoded:", encoded);
+            let binaryString = atob(encoded); // 解码为二进制字符串
+            let data = new TextDecoder('utf-8').decode(new Uint8Array([...binaryString].map(char => char.charCodeAt(0)))); // 将二进制字符串转换为 UTF-8 字符串
+   
+            console.log("answer:", data);
+
             answer += data;
+           
+
+            // 不立即使用 marked.parse，而是在 UI 上显示原始 Markdown
             messages.value[aiMessageIndex].content = answer;
           }
         });
@@ -291,7 +300,7 @@ const deleteChat = async (chatId) => {
     errorMessage.value = "";
 
     await userApi.deleteConversation(assistantId, chatId);
-    
+
     // 更新本地状态
     chatHistory.value = chatHistory.value.filter((chat) => chat.id !== chatId);
 
@@ -326,18 +335,27 @@ const fetchConversationList = async (startPage = 1, pageSize = 10) => {
   try {
     isLoading.value = true;
     errorMessage.value = "";
-    
+
     // 注意：API参数已变更，不再需要startPage和pageSize
     const response = await userApi.getConversationList(assistantId);
-    
-    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+
+    if (
+      response.data &&
+      response.data.data &&
+      Array.isArray(response.data.data)
+    ) {
       chatHistory.value = response.data.data.map((item) => ({
         id: item.id,
         title: item.name,
-        time: new Date(item.createdAt * 1000).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        time: new Date(item.createdAt * 1000).toLocaleDateString("zh-CN", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         introduction: item.introduction,
       }));
-      
+
       if (chatHistory.value.length > 0) {
         currentChatId.value = chatHistory.value[0].id;
       }
@@ -353,12 +371,16 @@ const fetchConversationList = async (startPage = 1, pageSize = 10) => {
 const fetchConversationMessage = async (chatId) => {
   try {
     const response = await userApi.getConversationMessage(assistantId, chatId);
-    
+
     // 根据API响应结构调整处理方式
-    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+    if (
+      response.data &&
+      response.data.data &&
+      Array.isArray(response.data.data)
+    ) {
       messages.value = response.data.data.flatMap((item) => {
         const messages = [];
-        
+
         messages.push({
           sender: "user",
           type: "text",
@@ -390,9 +412,15 @@ const saveTitle = async () => {
   if (editingTitle.value.trim() === "") return;
 
   try {
-    await userApi.renameConversation(assistantId, currentChatId.value, editingTitle.value);
-    
-    const chat = chatHistory.value.find((chat) => chat.id === currentChatId.value);
+    await userApi.renameConversation(
+      assistantId,
+      currentChatId.value,
+      editingTitle.value
+    );
+
+    const chat = chatHistory.value.find(
+      (chat) => chat.id === currentChatId.value
+    );
     if (chat) {
       chat.title = editingTitle.value;
     }
