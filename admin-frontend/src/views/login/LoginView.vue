@@ -80,13 +80,14 @@ const handleLogin = async () => {
     if (valid) {
       loading.value = true;
       try {
-        const response = await apiClient.post('/auth/login', {
-            username: loginForm.username,
-            password: loginForm.password
-          });
-        if (response) {
+        // 使用 userStore 的 login 方法，确保状态和本地存储正确更新
+        const success = await userStore.login(loginForm.username, loginForm.password);
+        
+        if (success) {
           ElMessage.success("登录成功");
-          router.push("/");
+          // 使用 await 等待路由完成
+          await router.push("/dashboard");
+          console.log("登录后已跳转到 dashboard");
         } else {
           ElMessage.error("登录失败，请检查用户名和密码");
         }

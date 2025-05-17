@@ -66,9 +66,9 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !isAuthenticated) {
     // 需要登录但未认证，重定向到登录页
     next({ name: 'login' })
-  } else if ((to.name === 'login' || to.name === 'register') && isAuthenticated) {
+  } else if ((to.name === 'Login') && isAuthenticated) {
     // 已登录用户尝试访问登录页，重定向到首页
-    next({ name: 'home' })
+    next({ path: '/dashboard' })
   } else {
     // 正常导航
     next()
