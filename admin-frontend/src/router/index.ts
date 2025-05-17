@@ -20,9 +20,9 @@ const routes: Array<RouteRecordRaw> = [
         meta: { requiresAuth: true },
       },
       {
-        path: "generate-exercise",
+        path: "exercises/generate",
         name: "GenerateExercise",
-        component: () => import("@/views/agents/GenerateExercise.vue"),
+        component: () => import("@/views/exercises/GenerateExercise.vue"),
         meta: { requiresAuth: true },
       },
       {
@@ -55,24 +55,24 @@ const routes: Array<RouteRecordRaw> = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL || '/'),
+  history: createWebHistory(import.meta.env.BASE_URL || "/"),
   routes,
 });
 
 // 全局前置守卫
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('authToken')
-  
+  const isAuthenticated = localStorage.getItem("authToken");
+
   if (to.meta.requiresAuth && !isAuthenticated) {
     // 需要登录但未认证，重定向到登录页
-    next({ name: 'login' })
-  } else if ((to.name === 'Login') && isAuthenticated) {
+    next({ name: "login" });
+  } else if (to.name === "Login" && isAuthenticated) {
     // 已登录用户尝试访问登录页，重定向到首页
-    next({ path: '/dashboard' })
+    next({ path: "/dashboard" });
   } else {
     // 正常导航
-    next()
+    next();
   }
-})
+});
 
 export default router;

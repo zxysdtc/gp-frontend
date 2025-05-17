@@ -12,10 +12,7 @@
         label-width="0"
       >
         <el-form-item prop="username">
-          <el-input
-            v-model="loginForm.username"
-            placeholder="用户名"
-          >
+          <el-input v-model="loginForm.username" placeholder="用户名">
             <template #prefix>
               <el-icon><User /></el-icon>
             </template>
@@ -56,8 +53,8 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useUserStore } from "@/stores/user";
 import type { FormInstance, FormRules } from "element-plus";
-import { User, Lock } from '@element-plus/icons-vue';
-import apiClient from '@/api/http';
+import { User, Lock } from "@element-plus/icons-vue";
+import apiClient from "@/api/http";
 const router = useRouter();
 const userStore = useUserStore();
 const loading = ref(false);
@@ -81,8 +78,11 @@ const handleLogin = async () => {
       loading.value = true;
       try {
         // 使用 userStore 的 login 方法，确保状态和本地存储正确更新
-        const success = await userStore.login(loginForm.username, loginForm.password);
-        
+        const success = await userStore.login(
+          loginForm.username,
+          loginForm.password
+        );
+
         if (success) {
           ElMessage.success("登录成功");
           // 使用 await 等待路由完成
