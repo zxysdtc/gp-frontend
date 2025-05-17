@@ -1,10 +1,5 @@
 <template>
   <div class="login-container">
-    <div class="brand-section">
-      <h1>知识图谱与智能体系统</h1>
-      <p>数据结构原理</p>
-      <!-- 可以添加图形化背景元素 -->
-    </div>
     <div class="form-section">
       <h2>欢迎回来</h2>
       <form @submit.prevent="handleLogin">

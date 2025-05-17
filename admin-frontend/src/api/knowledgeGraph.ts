@@ -19,9 +19,10 @@ export interface KnowledgeGraph {
   edges: KnowledgeGraphEdge[];
 }
 
-export function generateKnowledgeGraphFromPdf(file: File) {
+export function generateKnowledgeGraphFromPdf(file: File, params: string) {
   const formData = new FormData();
   formData.append("pdf", file);
+  formData.append("params", params);
 
   return http.post<FormData, KnowledgeGraph>(
     "/knowledge-graph/generate",

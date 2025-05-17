@@ -9,15 +9,16 @@
           background-color="#304156"
           text-color="#bfcbd9"
           active-text-color="#409EFF"
+          style="height: 100vh;"
         >
           <el-menu-item index="/dashboard">
-            <el-icon><el-icon-menu /></el-icon>
+            <el-icon><Menu /></el-icon>
             <span>仪表盘</span>
           </el-menu-item>
 
           <el-sub-menu index="/agents">
             <template #title>
-              <el-icon><el-icon-s-custom /></el-icon>
+              <el-icon><User /></el-icon>
               <span>智能体管理</span>
             </template>
             <el-menu-item index="/agents">查看智能体</el-menu-item>
@@ -26,7 +27,7 @@
 
           <el-sub-menu index="/knowledge-graph">
             <template #title>
-              <el-icon><el-icon-share /></el-icon>
+              <el-icon><Connection /></el-icon>
               <span>知识图谱管理</span>
             </template>
             <el-menu-item index="/knowledge-graph">生成知识图谱</el-menu-item>
@@ -42,9 +43,9 @@
             <div class="header-right">
               <el-dropdown @command="handleCommand">
                 <span class="el-dropdown-link">
-                  管理员<el-icon class="el-icon--right"
-                    ><el-icon-arrow-down
-                  /></el-icon>
+                  管理员<el-icon class="el-icon--right">
+                    <ArrowDown />
+                  </el-icon>
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -69,6 +70,12 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
+import { 
+  Menu, 
+  User, 
+  Connection, 
+  ArrowDown 
+} from '@element-plus/icons-vue';
 
 const router = useRouter();
 const userStore = useUserStore();

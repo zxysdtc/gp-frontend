@@ -15,8 +15,11 @@
           <el-input
             v-model="loginForm.username"
             placeholder="用户名"
-            prefix-icon="el-icon-user"
-          />
+          >
+            <template #prefix>
+              <el-icon><User /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
 
         <el-form-item prop="password">
@@ -24,9 +27,12 @@
             v-model="loginForm.password"
             type="password"
             placeholder="密码"
-            prefix-icon="el-icon-lock"
             @keyup.enter="handleLogin"
-          />
+          >
+            <template #prefix>
+              <el-icon><Lock /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
 
         <el-form-item>
@@ -50,7 +56,8 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useUserStore } from "@/stores/user";
 import type { FormInstance, FormRules } from "element-plus";
-
+import { User, Lock } from '@element-plus/icons-vue';
+import apiClient from '@/api/http';
 const router = useRouter();
 const userStore = useUserStore();
 const loading = ref(false);
@@ -73,11 +80,11 @@ const handleLogin = async () => {
     if (valid) {
       loading.value = true;
       try {
-        const result = await userStore.login(
-          loginForm.username,
-          loginForm.password
-        );
-        if (result) {
+        const response = await apiClient.post('/auth/login', {
+            username: loginForm.username,
+            password: loginForm.password
+          });
+        if (response) {
           ElMessage.success("登录成功");
           router.push("/");
         } else {

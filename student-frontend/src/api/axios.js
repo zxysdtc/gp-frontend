@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080/api/v1', // 设置基础URL
+  baseURL: 'http://40.81.18.144:8080/api/v1', // 设置基础URL
   headers: {
     'Content-Type': 'application/json',
     // 你可以在这里添加其他全局 headers，例如认证 token
