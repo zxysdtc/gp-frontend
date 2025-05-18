@@ -5,13 +5,19 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface LoginResponse {
+// 定义API返回的响应结构
+export interface LoginResponseData {
+  role: string;
   token: string;
-  user: {
-    id: number;
-    username: string;
-    role: string;
-  };
+}
+
+// 定义axios封装后的响应结构
+export interface LoginResponse {
+  data: LoginResponseData;
+  status: number;
+  statusText: string;
+  headers: any;
+  config: any;
 }
 
 export function login(username: string, password: string) {

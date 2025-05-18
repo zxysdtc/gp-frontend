@@ -41,6 +41,7 @@
             <p>描述：{{ selectedNode.description }}</p>
             <p>难度：{{ '★'.repeat(selectedNode.difficulty) + '☆'.repeat(5 - selectedNode.difficulty) }}</p>
             <p>类型：{{ selectedNode.type }}</p>
+            
           </div>
           <div v-else>
             <p>请在左侧选择一个知识点查看详情。</p>
