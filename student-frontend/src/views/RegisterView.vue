@@ -1,9 +1,5 @@
 <template>
   <div class="register-container">
-    <div class="brand-section">
-      <h1>知识图谱与智能体系统</h1>
-      <p>数据结构原理</p>
-    </div>
     <div class="form-section">
       <h2>创建新账号</h2>
       <form @submit.prevent="handleRegister">
@@ -36,6 +32,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import apiClient from '@/api/axios';  
 
 const email = ref('');
 const username = ref('');
@@ -51,7 +48,23 @@ const handleRegister = () => {
   // 实现注册逻辑
   console.log('注册:', email.value, username.value, password.value);
   // 示例：注册成功后跳转到登录页
-  // router.push('/login');
+  apiClient.post('/auth/register', {
+    email: email.value,
+    username: username.value,
+    password: password.value,
+  }).then(response => {
+    console.log(response);
+    apiClient.post('/auth/login', {
+      username: username.value,
+      password: password.value,
+    }).then(response => {
+      console.log(response);
+      localStorage.setItem('authToken', response.data.token);
+      router.push('/home');
+    });
+  }).catch(error => {
+    console.error('注册失败:', error);
+  });
 };
 </script>
 

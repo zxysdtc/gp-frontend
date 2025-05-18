@@ -7,13 +7,14 @@
         <h3>账户信息</h3>
         <div class="form-group">
             <label for="profile-username">用户名</label>
-            <input type="text" id="profile-username" value="当前用户名" disabled>
+            <input type="text" id="profile-username" v-model="username" disabled>
         </div>
         <div class="form-group">
             <label for="profile-email">邮箱</label>
-            <input type="email" id="profile-email" value="当前邮箱">
+            <input type="email" id="profile-email" v-model="email" :disabled="!isEdit">
         </div>
-        <button>保存更改</button>
+        <button v-if="!isEdit" @click="isEdit = true">编辑邮箱</button>
+        <button v-if="isEdit" @click="changeEmail,isEdit = false">保存更改</button>
     </div>
 
      <div class="settings-section card">
@@ -30,13 +31,55 @@
             <label for="confirm-new-password">确认新密码</label>
             <input type="password" id="confirm-new-password">
         </div>
-        <button>确认修改密码</button>
+        <button @click="changePassword">确认修改密码</button>
     </div>
   </div>
 </template>
 
 <script setup>
+import apiClient from '@/api/axios';
+import { onMounted, ref } from 'vue';
+
+const username = ref('');
+const email = ref('');
+const isEdit = ref(false);
 // 设置视图逻辑
+const changePassword = () => {
+    console.log('changePassword');
+    if (oldPassword.value === newPassword.value) {
+        alert('新密码不能与旧密码相同');
+        return;
+    }
+    if (newPassword.value !== confirmNewPassword.value) {
+        alert('新密码和确认密码不一致');
+        return;
+    }
+    apiClient.post('/auth/change-password', {
+        oldPassword: oldPassword.value,
+        newPassword: newPassword.value,
+    }).then(response => {
+        console.log(response);
+    }).catch(error => {
+        console.error('changePassword error:', error);
+    });
+}
+const changeEmail = () => {
+    console.log('changeEmail');
+    apiClient.post('/auth/change-email', {
+        email: email.value,
+    }).then(response => {
+        console.log(response);
+    }).catch(error => {
+        console.error('changeEmail error:', error);
+    });
+}
+
+onMounted(() => {
+    apiClient.get('/auth/user').then(response => {
+        username.value = response.data.username;
+        email.value = response.data.email;
+    });
+});
 </script>
 
 <style scoped>

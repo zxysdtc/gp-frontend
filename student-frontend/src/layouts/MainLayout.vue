@@ -121,7 +121,7 @@ const currentPage = computed(() => {
     '/knowledge-graph': '知识图谱',
     '/ai-assistant': '智能问答',
     '/learning-path': '学习路径',
-    '/resources': '学习资源',
+    // '/resources': '学习资源',
     '/settings': '个人设置',
     '/help': '帮助中心'
   }

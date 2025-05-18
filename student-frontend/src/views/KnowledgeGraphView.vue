@@ -2,12 +2,7 @@
   <div class="knowledge-graph-container">
     <header class="kg-header">
       <h2>知识图谱</h2>
-      <input type="search" placeholder="搜索知识点..." class="kg-search"/>
-      <div class="view-toggles">
-        <button>网络视图</button>
-        <button>树形视图</button>
-        <button>列表视图</button>
-      </div>
+      <input type="search" placeholder="搜索知识点..." class="kg-search" v-model="searchQuery" @input="handleSearch"/>
     </header>
     <div class="kg-main">
       <div class="graph-visualization">
@@ -20,22 +15,52 @@
         </div>
       </div>
       <aside class="details-panel">
-        <h3>知识点详情</h3>
-        <div v-if="selectedNode">
-          <h4>{{ selectedNode.title }}</h4>
-          <p>描述：{{ selectedNode.description }}</p>
-          <p>难度：{{ '★'.repeat(selectedNode.difficulty) + '☆'.repeat(5 - selectedNode.difficulty) }}</p>
-          <p>类型：{{ selectedNode.type }}</p>
-          <h5>相关知识点：</h5>
-          <ul>
-            <li v-for="related in selectedNode.related" :key="related.id">
-              {{ related.title }}
-            </li>
-          </ul>
-          <button class="start-learning-button">开始学习此知识点</button>
+        <div class="tab-bar">
+          <button 
+            :class="{ active: activeTab === 'details' }" 
+            @click="activeTab = 'details'"
+          >
+            知识点详情
+          </button>
+          <button 
+            :class="{ active: activeTab === 'related' }" 
+            @click="activeTab = 'related'"
+          >
+            相关知识点
+          </button>
+          <button 
+            :class="{ active: activeTab === 'resources' }" 
+            @click="activeTab = 'resources'"
+          >
+            学习资料
+          </button>
         </div>
-        <div v-else>
-          <p>请在左侧选择一个知识点查看详情。</p>
+        <div v-if="activeTab === 'details'">
+          <div v-if="selectedNode">
+            <h4>{{ selectedNode.title }}</h4>
+            <p>描述：{{ selectedNode.description }}</p>
+            <p>难度：{{ '★'.repeat(selectedNode.difficulty) + '☆'.repeat(5 - selectedNode.difficulty) }}</p>
+            <p>类型：{{ selectedNode.type }}</p>
+          </div>
+          <div v-else>
+            <p>请在左侧选择一个知识点查看详情。</p>
+          </div>
+        </div>
+        <div v-if="activeTab === 'related'">
+          <div v-if="selectedNode && selectedNode.related && selectedNode.related.length > 0">
+            <div v-for="(group, relationType) in groupRelatedByType(selectedNode.related)" :key="relationType">
+              <h6 style="font-size: 14px; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #666;">{{ relationType }}</h6>
+              <ul style="margin-left: 20px;">
+                <li v-for="related in group" :key="related.id" style="margin-bottom: 5px; color: #333;">
+                  - {{ related.title }}
+                </li>
+              </ul>
+            </div>
+          </div>
+          <p v-else>暂无相关知识点。</p>
+        </div>
+        <div v-if="activeTab === 'resources'">
+          <p>学习资料内容待补充。</p>
         </div>
       </aside>
     </div>
@@ -52,19 +77,24 @@ const selectedNode = ref(null);
 const nodeSizeFactor = ref(1);
 const fontSizeFactor = ref(1);
 const edgeLengthFactor = ref(1);
+const searchQuery = ref('');
+const allNodes = ref([]);
+const allLinks = ref([]);
+const activeTab = ref('details');
 
 // 获取知识图谱数据
 const fetchGraphData = async () => {
   try {
     const response = await apiClient.get('/graph/entities/all',{
       params:{
-        // id:selectedNode.value?.id,
-        // relationType:selectedNode.value?.relationType
         id:null,
         relationType:null
       }
     });
-    return processGraphData(response.data);
+    const processedData = processGraphData(response.data);
+    allNodes.value = processedData.nodes;
+    allLinks.value = processedData.links;
+    return processedData;
   } catch (error) {
     console.error('获取知识图谱数据失败:', error);
     return { nodes: [], links: [] }; 
@@ -188,7 +218,18 @@ const initChart = async () => {
   
   // 点击节点事件处理
   myChart.on('click', 'series.graph', (params) => {
-    selectedNode.value = params.data;
+    const node = params.data;
+    const related = allLinks.value
+      .filter(link => link.source === node.id || link.target === node.id)
+      .map(link => {
+        const relatedNode = allNodes.value.find(n => n.id === (link.source === node.id ? link.target : link.source));
+        return {
+          id: relatedNode.id,
+          title: relatedNode.title,
+          relationType: link.label // 从 links 中提取关系类型
+        };
+      });
+    selectedNode.value = { ...node, related };
   });
 };
 
@@ -286,6 +327,38 @@ const handleFullscreenChange = () => {
   if (document.fullscreenElement) {
     myChart.resize();
   }
+};
+
+// 处理搜索输入
+const handleSearch = () => {
+  if (!myChart) return;
+
+  const filteredNodes = allNodes.value.filter(node => 
+    node.title.toLowerCase().includes(searchQuery.value.toLowerCase())
+  );
+
+  const filteredLinks = allLinks.value.filter(link => 
+    filteredNodes.some(node => node.id === link.source || node.id === link.target)
+  );
+
+  myChart.setOption({
+    series: [{
+      data: filteredNodes,
+      links: filteredLinks
+    }]
+  });
+};
+
+// 新增相关知识点分组函数
+const groupRelatedByType = (related) => {
+  return related.reduce((groups, item) => {
+    const type = item.relationType || '未分类';
+    if (!groups[type]) {
+      groups[type] = [];
+    }
+    groups[type].push(item);
+    return groups;
+  }, {});
 };
 </script>
 
@@ -445,5 +518,31 @@ const handleFullscreenChange = () => {
 .details-panel > div > p { /* 未选择节点时的提示 */
     color: #9AA0A6;
     font-style: italic;
+}
+
+.tab-bar {
+  display: flex;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.tab-bar button {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.3s ease, border-bottom 0.3s ease;
+}
+
+.tab-bar button.active {
+  color: #4285F4;
+  border-bottom: 2px solid #4285F4;
+}
+
+.tab-bar button:hover {
+  color: #4285F4;
 }
 </style>

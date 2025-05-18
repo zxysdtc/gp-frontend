@@ -149,35 +149,28 @@
     </main>
     <aside class="reference-panel" :class="{ collapsed: isReferenceCollapsed }">
       <button @click="toggleReferencePanel" class="collapse-toggle">
-        {{ isReferenceCollapsed ? "展开" : "收起" }}
+        {{ isReferenceCollapsed ? "🡸" : "🡺" }}
       </button>
+      <br>
+      <br>
       <div v-if="!isReferenceCollapsed">
-        <h4>相关知识</h4>
-        <h5>推荐知识点：</h5>
-        <ul>
-          <li>栈和队列</li>
-          <li>链表</li>
-        </ul>
-        <h5>学习资源：</h5>
-        <ul>
-          <li>视频：链表详解</li>
-          <li>文档：数据结构基础</li>
-        </ul>
-        <h5>相似问题：</h5>
-        <ul>
-          <li>数组和树的区别</li>
-          <li>如何实现栈</li>
-        </ul>
+        <h4>知识图谱</h4>
+        <div class="graph-visualization">
+          <div ref="chart" style="width: 100%; height: 100%"></div>
+        </div>
       </div>
     </aside>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from "vue";
+import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
 import apiClient from "@/api/axios";
 import { marked } from "marked";
+import * as echarts from 'echarts';
 import "github-markdown-css";
+const chart = ref(null);
+let myChart = null;
 
 const userApi = {
   getParameters: (assistantId) =>
@@ -217,7 +210,7 @@ const chatHistory = ref([]);
 
 const messages = ref([]);
 const newMessage = ref("");
-const isReferenceCollapsed = ref(false);
+const isReferenceCollapsed = ref(true);
 const isLoading = ref(false); // 添加加载状态
 const errorMessage = ref(""); // 添加错误信息
 const isManagingChats = ref(false);
@@ -282,10 +275,13 @@ const sendMessage = async () => {
     type: "text",
     content: userMessageContent,
   });
-  newMessage.value = ""; // 发送后立即清空输入框
+  newMessage.value = "";
 
   isLoading.value = true;
   errorMessage.value = "";
+
+  // 发送 Cypher 查询
+  await sendCypherQuery(userMessageContent);
 
   // 滚动到底部以显示新消息和"正在思考"
   await nextTick(); // 等待DOM更新
@@ -617,11 +613,75 @@ const switchAssistant = (assistantId) => {
   fetchConversationList();
 };
 
-// 组件加载时获取会话列表
+// 初始化 ECharts 图表
+const initChart = () => {
+  if (chart.value) {
+    myChart = echarts.init(chart.value);
+    myChart.setOption({
+      tooltip: {},
+      animationDurationUpdate: 1500,
+      animationEasingUpdate: 'quinticInOut',
+      series: [
+        {
+          type: 'graph',
+          layout: 'force',
+          force: {
+            repulsion: 100,
+            edgeLength: 100,
+          },
+          data: [],
+          links: [],
+          roam: true,
+          label: {
+            show: true,
+          },
+          lineStyle: {
+            color: 'source',
+            curveness: 0.3,
+          },
+        },
+      ],
+    });
+  }
+};
+
+// 更新图表数据
+const updateChart = (data) => {
+  if (myChart) {
+    myChart.setOption({
+      series: [
+        {
+          data: data.nodes,
+          links: data.links,
+        },
+      ],
+    });
+  }
+};
+
+// 发送 Cypher 查询并更新图表
+const sendCypherQuery = async (cypherQuery) => {
+  try {
+    const response = await apiClient.post('/graph/query', { query: cypherQuery });
+    updateChart(response.data);
+  } catch (error) {
+    console.error('Cypher 查询失败:', error);
+  }
+};
+
+// 在组件加载时初始化图表
 onMounted(async () => {
   await fetchAssistantList();
   currentAssistantId.value = assistants.value[0].id;
   await fetchConversationList();
+  initChart();
+});
+
+// 在组件销毁时销毁图表
+onUnmounted(() => {
+  if (myChart) {
+    myChart.dispose();
+  }
 });
 </script>
 
@@ -934,6 +994,16 @@ onMounted(async () => {
   height: 100%; /* 确保参考面板高度占满父容器 */
 }
 
+.graph-visualization {
+  flex: 3; /* 占 75% */
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0px 1px 3px rgba(0,0,0,0.1);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
 .reference-panel.collapsed {
   width: 40px;
   padding: 15px 5px;
@@ -954,8 +1024,8 @@ onMounted(async () => {
   color: #5f6368;
   z-index: 1;
   padding: 5px;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
+  writing-mode: horizontal-tb;
+  transform: none;
 }
 
 .reference-panel.collapsed .collapse-toggle {

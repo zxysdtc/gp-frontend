@@ -1,14 +1,7 @@
 <template>
   <div class="home-container">
     <main class="main-content">
-      <header class="top-header">
-        <div class="breadcrumb">首页 > 学生主页</div>
-        <div class="user-actions">
-          <input type="search" placeholder="搜索..." class="search-box"/>
-          <button class="icon-button">通知</button>
-          <button class="icon-button">头像</button>
-        </div>
-      </header>
+
       <div class="content-area">
         <section class="card overview-card">
           <h3>学习进度概览</h3>
