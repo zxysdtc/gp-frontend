@@ -39,7 +39,11 @@
           :show-file-list="false"
           :before-upload="beforeAvatarUpload"
         >
-          <img v-if="agentForm.avatar" :src="agentForm.avatar" class="avatar" />
+          <el-img
+            v-if="agentForm.avatar"
+            :src="agentForm.avatar"
+            class="avatar"
+          />
           <el-icon v-else class="avatar-uploader-icon"
             ><el-icon-plus
           /></el-icon>
