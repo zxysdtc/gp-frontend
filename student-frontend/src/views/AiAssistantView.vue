@@ -201,7 +201,7 @@ const userApi = {
     apiClient.post(
       `/chat/rename?assistantId=${assistantId}&chat_id=${chatId}`
     ),
-  getAssistantList: () => apiClient.get("/dify/config/chatbots"),
+  getAssistantList: () => apiClient.get("/dify/chatbots"),
 };
 
 const newTitle = ref("新会话");

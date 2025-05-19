@@ -30,7 +30,8 @@
               <el-icon><Connection /></el-icon>
               <span>知识图谱管理</span>
             </template>
-            <el-menu-item index="/knowledge-graph">生成知识图谱</el-menu-item>
+            <el-menu-item index="/knowledge-graph">知识图谱</el-menu-item>
+            <el-menu-item index="/knowledge-graph-generate">生成知识图谱</el-menu-item>
             <el-menu-item index="/knowledge-graph/nodes">节点管理</el-menu-item>
           </el-sub-menu>
 

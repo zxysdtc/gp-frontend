@@ -43,6 +43,13 @@ const routes: Array<RouteRecordRaw> = [
         component: () =>
           import("@/views/knowledge-graph/KnowledgeGraphView.vue"),
         meta: { requiresAuth: true },
+      },      
+      {
+        path: "knowledge-graph-generate",
+        name: "KnowledgeGraphGenerate",
+        component: () =>
+          import("@/views/knowledge-graph/KnowledgeGraphGenerateView.vue"),
+        meta: { requiresAuth: true },
       },
       {
         path: "knowledge-graph/nodes",

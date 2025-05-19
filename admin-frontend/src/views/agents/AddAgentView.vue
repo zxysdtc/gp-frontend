@@ -8,6 +8,24 @@
       ref="agentFormRef"
       label-width="100px"
     >
+      <el-form-item label="头像" prop="avatar">
+        <el-upload
+          action="#"
+          :http-request="uploadImage"
+          :show-file-list="false"
+          :before-upload="beforeAvatarUpload"
+        >
+          <el-avatar
+            v-if="agentForm.avatar"
+            :src="getAvatarSrc(agentForm.avatar)"
+            :size="100"
+          />
+          <el-icon v-else class="avatar-uploader-icon" :size="100">
+            <el-icon-plus />
+          </el-icon>
+        </el-upload>
+      </el-form-item>
+
       <el-form-item label="名称" prop="name">
         <el-input
           v-model="agentForm.name"
@@ -24,32 +42,15 @@
         ></el-input>
       </el-form-item>
 
-      <el-form-item label="网址" prop="url">
+      <el-form-item label="apiKey" prop="apiKey">
         <el-input
-          v-model="agentForm.url"
-          placeholder="请输入智能体网址"
+          v-model="agentForm.apiKey"
+          placeholder="请输入智能体apiKey"
         ></el-input>
       </el-form-item>
-
-      <el-form-item label="头像" prop="avatar">
-        <el-upload
-          class="avatar-uploader"
-          action="#"
-          :http-request="uploadImage"
-          :show-file-list="false"
-          :before-upload="beforeAvatarUpload"
-        >
-          <el-img
-            v-if="agentForm.avatar"
-            :src="agentForm.avatar"
-            class="avatar"
-          />
-          <el-icon v-else class="avatar-uploader-icon"
-            ><el-icon-plus
-          /></el-icon>
-        </el-upload>
+      <el-form-item label="状态" prop="enabled">
+        <el-switch v-model="agentForm.enabled" />
       </el-form-item>
-
       <el-form-item>
         <el-button type="primary" @click="handleSubmit" :loading="loading">{{
           isEdit ? "更新" : "添加"
@@ -81,8 +82,10 @@ const isEdit = computed(() => route.query.id !== undefined);
 const agentForm = reactive<Agent>({
   name: "",
   description: "",
-  url: "",
+  apiKey: "",
   avatar: "",
+  id: 0,
+  enabled: true,
 });
 
 const rules: FormRules = {
@@ -93,45 +96,120 @@ const rules: FormRules = {
   description: [
     { required: true, message: "请输入智能体描述", trigger: "blur" },
   ],
-  url: [
-    { required: true, message: "请输入智能体网址", trigger: "blur" },
+  apiKey: [
+    { required: true, message: "请输入智能体apiKey", trigger: "blur" },
     {
-      pattern: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w.-]*)*\/?$/,
-      message: "请输入有效的URL",
+      min: 10,
+      max: 100,
+      message: "长度在 10 到 100 个字符",
       trigger: "blur",
     },
   ],
   avatar: [{ required: true, message: "请上传智能体头像", trigger: "change" }],
 };
 
-const beforeAvatarUpload = (file: File) => {
+const beforeAvatarUpload = async (file: File) => {
+  let valid = true;
   const isImage = file.type.startsWith("image/");
-  const isLt2M = file.size / 1024 / 1024 < 2;
+  const isLt2M = file.size / 1024 / 1024 < 10;
 
   if (!isImage) {
     ElMessage.error("头像必须是图片文件!");
+    valid = false;
   }
 
   if (!isLt2M) {
-    ElMessage.error("头像大小不能超过 2MB!");
+    const compressedFile = await compressImage(file);
+    if (!compressedFile) {
+      valid = false;
+    }
   }
+  console.log("valid:", valid);
+  return valid;
+};
 
-  return isImage && isLt2M;
+const compressImage = (file: File): Promise<File | null> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      img.src = e.target?.result as string;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 800;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      ctx?.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(null);
+          }
+        },
+        file.type,
+        0.7
+      );
+    };
+
+    reader.readAsDataURL(file);
+  });
 };
 
 // 在实际项目中，这里应该调用后端API上传图片
 const uploadImage = async (options: UploadRequestOptions) => {
   const file = options.file;
-
-  // 这里仅作为示例，真实项目中应该上传到服务器
+  if (!file) return;
   // 这里使用FileReader模拟图片上传后的URL
   const reader = new FileReader();
-  reader.readAsDataURL(file as Blob);
   reader.onload = (e) => {
-    agentForm.avatar = e.target?.result as string;
+    const result = e.target?.result as string;
+    // 提取Base64部分，去掉MIME前缀
+    agentForm.avatar = result;
   };
+  // 添加这一行来启动文件读取
+  reader.readAsDataURL(file);
 };
+const getAvatarSrc = (avatarData: string) => {
+  console.log("avatarData:", avatarData);
+  if (!avatarData) return "";
 
+  // 如果已经是完整的data URL，则直接返回
+  if (avatarData.startsWith("data:")) {
+    return avatarData;
+  }
+
+  // 否则添加前缀
+  return `data:image/png;base64,${avatarData}`;
+};
 const handleSubmit = async () => {
   if (!agentFormRef.value) return;
 
@@ -166,34 +244,21 @@ const handleSubmit = async () => {
   padding: 20px;
 }
 
-.avatar-uploader {
-  border: 1px dashed #d9d9d9;
-  border-radius: 6px;
-  cursor: pointer;
-  overflow: hidden;
-  width: 178px;
-  height: 178px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.avatar-uploader:hover {
-  border-color: #409eff;
+.avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-uploader-icon {
   font-size: 28px;
   color: #8c939d;
-  width: 178px;
-  height: 178px;
-  line-height: 178px;
+  width: 100px;
+  height: 100px;
+  line-height: 100px;
   text-align: center;
-}
-
-.avatar {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  background-color: #f5f7fa;
 }
 </style>

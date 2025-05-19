@@ -89,7 +89,7 @@
               :src="getAvatarSrc(editForm.avatarBase64)"
               :size="100"
             />
-            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+            <con v-else class="avatar-uploader-icon"><Plus /></con>
           </el-upload>
         </el-form-item>
         <el-form-item label="名称">
@@ -193,7 +193,7 @@ const handleAvatarChange = (file: any) => {
   const reader = new FileReader();
   reader.onload = (e) => {
     const result = e.target?.result as string;
-    console.log("头像base64:", result);
+    console.log("头像base64：", result);
     // 提取Base64部分，去掉MIME前缀
     if (typeof result === "string" && result.includes("base64,")) {
       editForm.avatarBase64 = result.split("base64,")[1];
