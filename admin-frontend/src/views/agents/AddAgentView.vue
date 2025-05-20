@@ -193,7 +193,9 @@ const uploadImage = async (options: UploadRequestOptions) => {
   reader.onload = (e) => {
     const result = e.target?.result as string;
     // 提取Base64部分，去掉MIME前缀
-    agentForm.avatar = result;
+    const base64Data = result.split(',')[1];
+    console.log( 'avatar result:', base64Data)
+    agentForm.avatar = base64Data;
   };
   // 添加这一行来启动文件读取
   reader.readAsDataURL(file);

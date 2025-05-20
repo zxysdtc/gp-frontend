@@ -30,6 +30,7 @@
         <ul>
           <li
             v-for="chat in chatHistory"
+            @contextmenu="(e) => treeRightClick(e, chat)"
             :key="chat.id"
             :class="{ active: chat.id === currentChatId }"
             @click="isManagingChats ? null : switchChat(chat.id)"
@@ -59,18 +60,24 @@
           >
             <div class="assistant-info">
               <div style="display: flex; align-items: center;">
-                <h4 style="font-size: 16px; font-weight: bold;">{{ assistant.name }}</h4>
-                <div style="flex: 1;"></div>
-                <span
-                  v-for="tag in assistant.tags"
-                  :key="tag"
-                  class="tag"
-                  :style="{ backgroundColor: getRandomColor() }"
-                >
-                  {{ tag }}
-                </span>
+                <img :src="imgSrc(assistant.avatar)" alt="助手头像" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+                <div style="display: flex; flex-direction: column;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <h4 style="font-size: 16px; font-weight: bold;">{{ assistant.name }}</h4>
+                    <div style="display: flex; gap: 4px;">
+                      <span
+                        v-for="tag in assistant.tags"
+                        :key="tag"
+                        class="tag"
+                        :style="{ backgroundColor: getRandomColor() }"
+                      >
+                        {{ tag }}
+                      </span>
+                    </div>
+                  </div>
+                  <p style="font-size: 12px; color: #666; margin-top: 0px;">{{ assistant.description }}</p>
+                </div>
               </div>
-              <p style="font-size: 12px; color: #666;">{{ assistant.description }}</p>
             </div>
           </div>
         </div>
@@ -160,6 +167,16 @@
         </div>
       </div>
     </aside>
+    <!-- 右键菜单 -->
+    <div
+      v-if="rightMenuVisible"
+      class="right-menu"
+      :style="rightMenuStyle"
+    >
+      <ul>
+        <li @click="handleDeleteChat">删除</li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -171,6 +188,13 @@ import * as echarts from 'echarts';
 import "github-markdown-css";
 const chart = ref(null);
 let myChart = null;
+
+// 鼠标右键菜单
+const rightMenuVisible = ref(false);
+const rightNodeData = ref(null);
+const contextmenuLeft = ref(0);
+const contextmenuTop = ref(0);
+
 
 const userApi = {
   getParameters: (assistantId) =>
@@ -217,7 +241,7 @@ const isManagingChats = ref(false);
 const isEditingTitle = ref(false);
 const editingTitle = ref("");
 const newChatId = ref(0);
-
+const assistantOpeningStatement = ref("");
 const currentAssistantId = ref(1); // 添加助手ID变量，可以从配置或状态中获取
 
 const currentChatTitle = computed(() => {
@@ -230,6 +254,30 @@ const currentChatTitle = computed(() => {
 const currentView = ref('chat'); // 当前视图，默认为会话视图
 const assistants = ref([]); // 助手列表
 
+const imgSrc = (avatar) => {
+  if(avatar){
+    return `data:image/jpeg;base64,${avatar}`;
+  }
+  return require('@/assets/images/default-avatar.png');
+};
+
+// 鼠标右键菜单
+const treeRightClick = (mouseEvent, data) => {
+  mouseEvent.preventDefault();
+  rightMenuVisible.value = true;
+  rightNodeData.value = data;
+  contextmenuLeft.value = mouseEvent.clientX;
+  contextmenuTop.value = mouseEvent.clientY;
+};
+
+// 关闭右键菜单
+const closeRightMenu = () => {
+  rightMenuVisible.value = false;
+};
+
+// 监听点击事件，关闭右键菜单
+document.addEventListener('click', closeRightMenu);
+
 const createNewChat = async () => {
   if(chatHistory.value.find(chat => chat.id === newChatId.value)){
     return;
@@ -240,8 +288,8 @@ const createNewChat = async () => {
   
   try {
     const response = await userApi.getParameters(currentAssistantId.value);
-    const openingStatement = response.data.openingStatement;
-    console.log(`openingStatement: ${openingStatement}`);
+    assistantOpeningStatement.value = response.data.openingStatement;
+    console.log(`openingStatement: ${assistantOpeningStatement.value}`);
     chatHistory.value.unshift({
       id: newChatId.value,
       title: "新会话",
@@ -251,7 +299,7 @@ const createNewChat = async () => {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      introduction: openingStatement,
+      introduction: assistantOpeningStatement.value,
     });
     switchChat(newChatId.value);
   } catch (error) {
@@ -279,9 +327,7 @@ const sendMessage = async () => {
 
   isLoading.value = true;
   errorMessage.value = "";
-
-  // 发送 Cypher 查询
-  await sendCypherQuery(userMessageContent);
+ 
 
   // 滚动到底部以显示新消息和"正在思考"
   await nextTick(); // 等待DOM更新
@@ -316,16 +362,30 @@ const sendMessage = async () => {
       const { done: doneRead, value } = await reader.read();
       if (value) {
         const text = decoder.decode(value, { stream: true });
-        text.split("\n").forEach((line) => {
-          if(line.startsWith("event:")){
+        for (const line of text.split("\n")) {
+          if (line.startsWith("event:")) {
             // 如果 currentChatId 等于 newChatId，更新为事件中的 event 值
             if (currentChatId.value === newChatId.value) {
               const currentNewChatId = line.slice(6);
               if (currentNewChatId) {
                 currentChatId.value = currentNewChatId;
                 chatHistory.value.shift();
-                // chatHistory.value.unshift();
-                chatHistory.value[0].chatId=currentNewChatId;
+                if (chatHistory.value[0]) {
+                  chatHistory.value[0].chatId = currentNewChatId;
+                } else {
+                  // 获取 openingStatement
+                  chatHistory.value.unshift({
+                    id: currentNewChatId,
+                    title: "新会话",
+                    time: new Date().toLocaleDateString("zh-CN", {
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
+                    introduction: assistantOpeningStatement.value,
+                  });
+                }
               }
             }
           }
@@ -344,7 +404,7 @@ const sendMessage = async () => {
             // 不立即使用 marked.parse，而是在 UI 上显示原始 Markdown
             messages.value[aiMessageIndex].content = answer;
           }
-        });
+        }
       }
       if (doneRead) {
         done = true;
@@ -374,6 +434,7 @@ const toggleReferencePanel = () => {
 
 const deleteChat = async (chatId) => {
   try {
+    console.log("删除会话:", chatId);
     if (!confirm("确定要删除这个会话吗？")) {
       return;
     }
@@ -389,6 +450,7 @@ const deleteChat = async (chatId) => {
     // 如果删除的是当前会话，自动切换到第一个会话或创建新会话
     if (chatId === currentChatId.value) {
       if (chatHistory.value.length > 0) {
+        messages.value = [];
         switchChat(chatHistory.value[0].id);
       } else {
         // 没有会话了，可以创建一个新的
@@ -404,7 +466,7 @@ const deleteChat = async (chatId) => {
 };
 
 const switchChat = (chatId) => {
-  if (currentChatId.value === chatId) return;
+  // if (currentChatId.value === chatId) return;
   currentChatId.value = chatId;
   console.log(`切换到会话: ${chatId}`);
   // 处理示例会话
@@ -465,11 +527,13 @@ const fetchConversationMessage = async (chatId) => {
     const introduction = chatHistory.value.find(chat => chat.id === chatId).introduction;
     console.log(`introduction: ${introduction}`);
     messages.value = [];
-    messages.value.push({
-      sender: "ai",
-      type: "text",
-      content: introduction,
-    });
+    if(introduction){
+      messages.value.push({
+        sender: "ai",
+        type: "text",
+        content: introduction,
+      });
+    }
     if(chatId == newChatId.value){
       return;
     }
@@ -606,11 +670,15 @@ const getRandomColor = () => {
 };
 
 // 切换助手
-const switchAssistant = (assistantId) => {
+const switchAssistant =  async (assistantId) => {
   currentAssistantId.value = assistantId;
   console.log(`切换到助手: ${assistantId}`);
   // 这里可以添加切换助手的逻辑，例如重新获取会话列表等
+  
   fetchConversationList();
+  const response = await userApi.getParameters(assistantId);
+  assistantOpeningStatement.value = response.data.openingStatement;
+
 };
 
 // 初始化 ECharts 图表
@@ -683,6 +751,20 @@ onUnmounted(() => {
     myChart.dispose();
   }
 });
+
+// 右键菜单的样式
+const rightMenuStyle = computed(() => ({
+  left: `${contextmenuLeft.value}px`,
+  top: `${contextmenuTop.value}px`,
+}));
+
+// 处理删除会话
+const handleDeleteChat = () => {
+  if (rightNodeData.value && rightNodeData.value.id) {
+    deleteChat(rightNodeData.value.id);
+    closeRightMenu(); // 关闭右键菜单
+  }
+};
 </script>
 
 <style scoped>
@@ -1237,6 +1319,32 @@ onUnmounted(() => {
 .assistant-item.active {
   background-color: #e7f1fd; /* 浅蓝色背景 */
   border-left: 3px solid #4285f4; /* 左侧蓝色边框 */
+}
+
+/* 右键菜单样式 */
+.right-menu {
+  position: absolute;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.right-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.right-menu li {
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.right-menu li:hover {
+  background-color: #f0f2f5;
 }
 
 </style>
