@@ -140,6 +140,7 @@
                 <video :src="videoUrl.filePath" controls style="width: 100%; max-width: 600px; height: auto;"></video>
               </div>
             </div>
+            <button @click="generateQuestions" class="generate-questions-button">智能出题</button>
           </div>
         </div>
       </aside>
@@ -152,7 +153,8 @@
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import * as echarts from "echarts";
 import apiClient from "@/api/axios";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
+
 const chart = ref(null);
 let myChart = null;
 const selectedNode = ref(null);
@@ -169,6 +171,67 @@ const videoResources = ref([]);
 const videoUrl = ref("");
 const videoUrls = ref([]);
 
+// 智能出题
+const generateQuestions = async () => {
+  try {
+    // 弹出对话框，允许用户选择出题类型、填写题目数量，并自动填入当前选择的节点
+    ElMessageBox({
+      title: '智能出题',
+      message: `
+        <div>
+          <label for="knowledgePoint">知识点：</label>
+          <input id="knowledgePoint" type="text" value="${selectedNode.value ? selectedNode.value.title : ''}" style="width: 100%; margin-bottom: 10px;" />
+          <label for="questionType">出题类型：</label>
+          <select id="questionType" style="width: 100%; margin-bottom: 10px;">
+            <option value="选择题">单选题</option>
+            <option value="判断题">判断题</option>
+            <option value="填空题">填空题</option>
+            <option value="简答题">简答题</option>
+          </select>
+          <label for="questionCount">题目数量：</label>
+          <input id="questionCount" type="number" placeholder="请输入题目数量" style="width: 100%;" />
+          <label for="questionLevel">题目难度：</label>
+          <select id="questionLevel" style="width: 100%; margin-bottom: 10px;">
+            <option value="简单">简单</option>
+            <option value="中等">中等</option>
+            <option value="困难">困难</option>
+          </select>
+          </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      dangerouslyUseHTMLString: true,
+      beforeClose: async (action, instance, done) => {
+        if (action === 'confirm') {
+          const questionType = document.getElementById('questionType').value;
+          const questionCount = document.getElementById('questionCount').value;
+          const selectedKnowledgePoint = document.getElementById('knowledgePoint').value;
+          const questionLevel = document.getElementById('questionLevel').value;
+          if (!questionCount || isNaN(questionCount) || questionCount <= 0) {
+            ElMessage.error('请输入有效的题目数量');
+            return;
+          }
+          // 这里可以调用出题接口，传入题目数量、出题类型和知识点
+          const response = await apiClient.post("/agent/generateExercise", {
+              inputs: {
+                  questionType: questionType,
+                  questionCount: questionCount,
+                  knowledgePoint: selectedKnowledgePoint,
+                  questionLevel: questionLevel,
+              }
+          });
+          console.log("智能出题response", response.data.answer);
+          
+          ElMessage.success(`已生成 ${questionCount} 道${questionType}，知识点为 ${selectedKnowledgePoint}`);
+        }
+        done();
+      }
+    });
+  } catch (error) {
+    console.error("智能出题失败:", error);
+  }
+}
 
 // 获取知识图谱数据
 const fetchGraphData = async () => {
@@ -872,5 +935,23 @@ const openFileInNewWindow = (file) => {
 .file-link:hover {
   color: #85888c; /* 鼠标悬停时的颜色 */
   text-decoration: underline; /* 鼠标悬停时显示下划线 */
+}
+
+.generate-questions-button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 10px;
+  background-color: #4CAF50; /* 绿色背景 */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.generate-questions-button:hover {
+  background-color: #45a049; /* 鼠标悬停时的背景色 */
 }
 </style>
