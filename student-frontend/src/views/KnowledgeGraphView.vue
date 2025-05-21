@@ -44,14 +44,24 @@
         <div v-if="activeTab === 'details'">
           <div v-if="selectedNode">
             <h4>{{ selectedNode.title }}</h4>
-            <p>描述：{{ selectedNode.description }}</p>
+            <p><strong>描述：</strong>{{ selectedNode.description }}</p>
             <p>
-              难度：{{
+              <strong>难度：</strong>{{
                 "★".repeat(selectedNode.difficulty) +
                 "☆".repeat(5 - selectedNode.difficulty)
               }}
             </p>
-            <p>类型：{{ selectedNode.type }}</p>
+            <p><strong>类型：</strong>{{ selectedNode.type }}</p>
+            <div v-if="selectedNode.type === '算法'">
+              <p><strong>时间复杂度：</strong>{{ selectedNode.properties.时间复杂度 }}</p>
+              <p><strong>空间复杂度：</strong>{{ selectedNode.properties.空间复杂度 }}</p>
+              <p><strong>设计思想：</strong>{{ selectedNode.properties.设计思想 }}</p>
+              <p><strong>适用场景：</strong>{{ selectedNode.properties.适用场景 }}</p>
+            </div>
+            <div v-if="selectedNode.type === '数据结构'">
+              <p><strong>核心特性：</strong>{{ selectedNode.properties.核心特性 }}</p>
+              <p><strong>存储开销：</strong>{{ selectedNode.properties.存储开销 }}</p>
+            </div>
           </div>
           <div v-else>
             <p>请在左侧选择一个知识点查看详情。</p>
@@ -105,7 +115,7 @@
               "
               class="resources-empty"
             >
-              暂无学习资料，请上传相关文件
+              暂无学习资料
             </p>
             <div v-if="normalResources && normalResources.length > 0">
               <h4>文档资料</h4>
@@ -153,7 +163,6 @@ const searchQuery = ref("");
 const allNodes = ref([]);
 const allLinks = ref([]);
 const activeTab = ref("details");
-const fileList = ref([]);
 const resources = ref([]);
 const normalResources = ref([]);
 const videoResources = ref([]);

@@ -310,9 +310,6 @@ const createNewChat = async () => {
   }
 };
 
-const toggleManageMode = () => {
-  isManagingChats.value = !isManagingChats.value;
-};
 
 const sendMessage = async () => {
   if (newMessage.value.trim() === "" || isLoading.value) return;
