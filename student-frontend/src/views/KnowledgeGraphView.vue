@@ -146,6 +146,33 @@
       </aside>
     </div>
     <!-- <video :src="videoUrl" controls v-if="videoUrl"></video> -->
+
+    <!-- 题目展示弹窗 -->
+    <el-dialog
+      v-model="isQuestionDialogVisible"
+      title="智能出题结果"
+      width="50%"
+      :before-close="handleCloseDialog"
+    >
+      <div v-if="isLoading" class="loading-spinner">
+        <el-icon class="is-loading"><Loading /></el-icon>
+        <p>正在生成题目，请稍候...</p>
+      </div>
+      <div v-else>
+        <div v-for="(question, index) in generatedQuestions" :key="index" class="question-container">
+          <h4>{{ question.题号 }}: {{ question.题干 }}</h4>
+          <div v-if="question.选项">
+            <p style="margin-left: 20px;"
+            v-for="(option, key) in question.选项" :key="key">{{ key }}: {{ option }}</p>
+          </div>
+          <el-button type="text" @click="toggleAnswer(index)">查看参考答案</el-button>
+          <div v-if="showAnswers[index]" class="answer-section">
+            <p><strong>参考答案：</strong>{{ question.参考答案 }}</p>
+            <p><strong>解析：</strong>{{ question.解析 }}</p>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -154,6 +181,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import * as echarts from "echarts";
 import apiClient from "@/api/axios";
 import { ElMessage, ElMessageBox } from "element-plus";
+
 
 const chart = ref(null);
 let myChart = null;
@@ -171,9 +199,18 @@ const videoResources = ref([]);
 const videoUrl = ref("");
 const videoUrls = ref([]);
 
+// 新增状态管理
+const isQuestionDialogVisible = ref(false);
+const isLoading = ref(false);
+const generatedQuestions = ref([]);
+const showAnswers = ref([]);
+
 // 智能出题
 const generateQuestions = async () => {
   try {
+    isLoading.value = true;
+    
+
     // 弹出对话框，允许用户选择出题类型、填写题目数量，并自动填入当前选择的节点
     ElMessageBox({
       title: '智能出题',
@@ -202,7 +239,7 @@ const generateQuestions = async () => {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       dangerouslyUseHTMLString: true,
-      beforeClose: async (action, instance, done) => {
+      beforeClose: async (action,  done) => {
         if (action === 'confirm') {
           const questionType = document.getElementById('questionType').value;
           const questionCount = document.getElementById('questionCount').value;
@@ -212,6 +249,7 @@ const generateQuestions = async () => {
             ElMessage.error('请输入有效的题目数量');
             return;
           }
+          isQuestionDialogVisible.value = true;
           // 这里可以调用出题接口，传入题目数量、出题类型和知识点
           const response = await apiClient.post("/agent/generateExercise", {
               inputs: {
@@ -221,8 +259,13 @@ const generateQuestions = async () => {
                   questionLevel: questionLevel,
               }
           });
-          console.log("智能出题response", response.data.answer);
           
+          // 更新生成的题目
+          generatedQuestions.value = JSON.parse(response.data.answer.replace(/```json\n|\n```/g, ""));
+          console.log("智能出题response", generatedQuestions.value);
+          showAnswers.value = new Array(generatedQuestions.value.length).fill(false);
+          isLoading.value = false;
+
           ElMessage.success(`已生成 ${questionCount} 道${questionType}，知识点为 ${selectedKnowledgePoint}`);
         }
         done();
@@ -230,8 +273,21 @@ const generateQuestions = async () => {
     });
   } catch (error) {
     console.error("智能出题失败:", error);
+    isLoading.value = false;
   }
 }
+
+// 切换参考答案显示
+const toggleAnswer = (index) => {
+  showAnswers.value[index] = !showAnswers.value[index];
+};
+
+// 关闭弹窗
+const handleCloseDialog = () => {
+  isQuestionDialogVisible.value = false;
+  generatedQuestions.value = [];
+  showAnswers.value = [];
+};
 
 // 获取知识图谱数据
 const fetchGraphData = async () => {
@@ -953,5 +1009,26 @@ const openFileInNewWindow = (file) => {
 
 .generate-questions-button:hover {
   background-color: #45a049; /* 鼠标悬停时的背景色 */
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 20px;
+}
+
+.loading-spinner .el-icon {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.question-container {
+  margin-bottom: 20px;
+}
+
+.answer-section {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
 }
 </style>
