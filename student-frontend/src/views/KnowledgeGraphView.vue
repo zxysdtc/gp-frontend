@@ -159,18 +159,55 @@
         <p>正在生成题目，请稍候...</p>
       </div>
       <div v-else>
+        <el-form-item label="查看答案" prop="enabled">
+        <el-switch v-model="isShowAnswers" />
+      </el-form-item>
         <div v-for="(question, index) in generatedQuestions" :key="index" class="question-container">
           <h4>{{ question.题号 }}: {{ question.题干 }}</h4>
-          <div v-if="question.选项">
-            <p style="margin-left: 20px;"
-            v-for="(option, key) in question.选项" :key="key">{{ key }}: {{ option }}</p>
+        <div v-if="questionType == '判断题'">
+          <el-radio-group v-model="question.selectedAnswer" style="margin-left: 10px;">
+            <el-radio :label="true">正确</el-radio>
+            <el-radio :label="false">错误</el-radio>
+          </el-radio-group>
+        </div>
+          <div v-if="questionType == '填空题'">
+              <br>
+              <el-input v-model="question.selectedAnswer" placeholder="请输入答案" style="margin-left: 10px; width: 90%;" />
+            </div>
+            
+            <div v-if="questionType === '简答题'">
+              <el-input v-model="question.selectedAnswer" style="margin-left: 10px;" type="textarea" :rows="2" />
           </div>
-          <el-button type="text" @click="toggleAnswer(index)">查看参考答案</el-button>
-          <div v-if="showAnswers[index]" class="answer-section">
+
+          <div v-if="question.选项">
+            <div v-if="questionType === '选择题'">
+            <el-radio-group v-model="question.selectedAnswer" style="margin-left: 10px;">
+              <el-radio
+                v-for="(option, key) in question.选项"
+                :key="key"
+                :label="key"
+                display="block"
+                style="display: block; margin-bottom: 5px;"
+              >
+                {{ key }}: {{ option }}
+              </el-radio>
+            </el-radio-group>
+            </div>
+          </div>
+          <div style="margin-left: 10px; margin-top: 5px;" 
+          v-if="isSubmitAnswer && (questionType == '选择题'||questionType == '判断题'||questionType == '填空题')">
+            <p v-if="!isAnswerCorrect[index]" style="color: red;">正确答案为:{{ question.参考答案 }}</p>
+            <p v-if="isAnswerCorrect[index]" style="color: green;">恭喜你,答对了!</p>
+          </div>
+ 
+          
+
+          <div v-if="isShowAnswers" class="answer-section">
             <p><strong>参考答案：</strong>{{ question.参考答案 }}</p>
             <p><strong>解析：</strong>{{ question.解析 }}</p>
           </div>
         </div>
+        <el-button type="primary" @click="submitAnswers">提交</el-button>
       </div>
     </el-dialog>
   </div>
@@ -203,7 +240,58 @@ const videoUrls = ref([]);
 const isQuestionDialogVisible = ref(false);
 const isLoading = ref(false);
 const generatedQuestions = ref([]);
-const showAnswers = ref([]);
+
+// 智能出题
+const questionType = ref("");
+const questionCount = ref("");
+const selectedKnowledgePoint = ref("");
+const questionLevel = ref("");
+const isShowAnswers = ref(false);
+const isAnswerCorrect = ref([]);
+const isSubmitAnswer = ref(false);
+
+// 提交答案
+const submitAnswers = () => {
+  console.log("题目数量：", generatedQuestions.value.length,"题目数量：", questionCount.value, "题目类型：" , questionType.value);
+  if(generatedQuestions.value.length != questionCount.value){
+    ElMessage.error("请完成所有题目");
+    return;
+  }
+
+  if(questionType.value == "选择题"){
+      for(let i = 0; i < generatedQuestions.value.length; i++){
+        if(generatedQuestions.value[i].selectedAnswer != generatedQuestions.value[i].参考答案){
+          isAnswerCorrect.value[i] = false;
+        }else{
+          isAnswerCorrect.value[i] = true;
+        }
+      }
+      console.log("isAnswerCorrect", isAnswerCorrect.value);  
+  }
+  if(questionType.value == "判断题"){
+    for(let i = 0; i < generatedQuestions.value.length; i++){
+      console.log("题目：", generatedQuestions.value[i]);
+      console.log("参考答案：", generatedQuestions.value[i].参考答案);
+      console.log("选择答案：", generatedQuestions.value[i].selectedAnswer);
+
+      if(generatedQuestions.value[i].selectedAnswer != generatedQuestions.value[i].参考答案){
+        isAnswerCorrect.value[i] = false;
+      }else{
+        isAnswerCorrect.value[i] = true;
+      }
+    }
+  }
+  isSubmitAnswer.value = true;
+  if(questionType.value == "填空题"){
+    for(let i = 0; i < generatedQuestions.value.length; i++){
+      if(generatedQuestions.value[i].selectedAnswer.trim() != generatedQuestions.value[i].参考答案.trim()){
+        isAnswerCorrect.value[i] = false;
+      }else{
+        isAnswerCorrect.value[i] = true;
+      }
+    }
+  }
+}
 
 // 智能出题
 const generateQuestions = async () => {
@@ -239,13 +327,13 @@ const generateQuestions = async () => {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       dangerouslyUseHTMLString: true,
-      beforeClose: async (action,  done) => {
+      beforeClose: async (action, instance, done) => {
         if (action === 'confirm') {
-          const questionType = document.getElementById('questionType').value;
-          const questionCount = document.getElementById('questionCount').value;
-          const selectedKnowledgePoint = document.getElementById('knowledgePoint').value;
-          const questionLevel = document.getElementById('questionLevel').value;
-          if (!questionCount || isNaN(questionCount) || questionCount <= 0) {
+          questionType.value = document.getElementById('questionType').value;
+          questionCount.value = document.getElementById('questionCount').value;
+          selectedKnowledgePoint.value = document.getElementById('knowledgePoint').value;
+          questionLevel.value = document.getElementById('questionLevel').value;
+          if (!questionCount.value || isNaN(questionCount.value) || questionCount.value <= 0) {
             ElMessage.error('请输入有效的题目数量');
             return;
           }
@@ -253,20 +341,21 @@ const generateQuestions = async () => {
           // 这里可以调用出题接口，传入题目数量、出题类型和知识点
           const response = await apiClient.post("/agent/generateExercise", {
               inputs: {
-                  questionType: questionType,
-                  questionCount: questionCount,
-                  knowledgePoint: selectedKnowledgePoint,
-                  questionLevel: questionLevel,
+                  questionType: questionType.value,
+                  questionCount: questionCount.value,
+                  knowledgePoint: selectedKnowledgePoint.value,
+                  questionLevel: questionLevel.value,
               }
           });
           
           // 更新生成的题目
           generatedQuestions.value = JSON.parse(response.data.answer.replace(/```json\n|\n```/g, ""));
+          console.log("questionType", questionType.value);
           console.log("智能出题response", generatedQuestions.value);
-          showAnswers.value = new Array(generatedQuestions.value.length).fill(false);
           isLoading.value = false;
-
-          ElMessage.success(`已生成 ${questionCount} 道${questionType}，知识点为 ${selectedKnowledgePoint}`);
+          isSubmitAnswer.value = false;
+          isAnswerCorrect.value = new Array(generatedQuestions.value.length);
+          ElMessage.success(`已生成 ${questionCount.value} 道${questionType.value}，知识点为 ${selectedKnowledgePoint.value}`);
         }
         done();
       }
@@ -277,16 +366,11 @@ const generateQuestions = async () => {
   }
 }
 
-// 切换参考答案显示
-const toggleAnswer = (index) => {
-  showAnswers.value[index] = !showAnswers.value[index];
-};
 
 // 关闭弹窗
 const handleCloseDialog = () => {
   isQuestionDialogVisible.value = false;
   generatedQuestions.value = [];
-  showAnswers.value = [];
 };
 
 // 获取知识图谱数据
