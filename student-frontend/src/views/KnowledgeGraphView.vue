@@ -311,7 +311,6 @@ const generateQuestions = async () => {
             <option value="选择题">单选题</option>
             <option value="判断题">判断题</option>
             <option value="填空题">填空题</option>
-            <option value="简答题">简答题</option>
           </select>
           <label for="questionCount">题目数量：</label>
           <input id="questionCount" type="number" placeholder="请输入题目数量" style="width: 100%;" />

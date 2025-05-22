@@ -226,6 +226,7 @@ const userApi = {
       `/chat/rename?assistantId=${assistantId}&chat_id=${chatId}`
     ),
   getAssistantList: () => apiClient.get("/dify/chatbots"),
+  runWorkflow: (params) => apiClient.post("/agent/workflow", params),
 };
 
 const newTitle = ref("新会话");
@@ -253,6 +254,28 @@ const currentChatTitle = computed(() => {
 
 const currentView = ref('chat'); // 当前视图，默认为会话视图
 const assistants = ref([]); // 助手列表
+
+// 知识图谱
+const graphData = ref([]);
+const fetchGraphData = async (message) => {
+  console.log("fetchGraphData");
+  try {
+    const response = await userApi.runWorkflow({
+      scenery: "KNOWLEDGE_GRAPH",
+      inputs: {
+        userQuery: message,
+        finalNodeCount: 15,
+      },
+    });
+    console.log("knowledge graph response:", response);
+    if (response.data.output.text.result && response.data.output.text.nodes && response.data.output.text.links) {
+      updateChart(response.data.output.text); // 更新图表数据
+    }
+  } catch (error) {
+    console.error("获取知识图谱数据失败:", error);
+  }
+};
+
 
 const imgSrc = (avatar) => {
   if(avatar){
@@ -310,7 +333,7 @@ const createNewChat = async () => {
   }
 };
 
-
+// 发送消息
 const sendMessage = async () => {
   if (newMessage.value.trim() === "" || isLoading.value) return;
 
@@ -343,6 +366,7 @@ const sendMessage = async () => {
         "Content-Type": "application/json",
       },
     });
+    fetchGraphData(userMessageContent);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let done = false;
@@ -390,11 +414,11 @@ const sendMessage = async () => {
           if (line.startsWith("data:")) {
             // 提取 data 后面的内容
             let encoded = line.slice(5);
-            console.log("encoded:", encoded);
+            // console.log("encoded:", encoded);
             let binaryString = atob(encoded); // 解码为二进制字符串
             let data = new TextDecoder('utf-8').decode(new Uint8Array([...binaryString].map(char => char.charCodeAt(0)))); // 将二进制字符串转换为 UTF-8 字符串
    
-            console.log("answer:", data);
+            // console.log("answer:", data);
 
             answer += data;
 
@@ -712,6 +736,7 @@ const initChart = () => {
 
 // 更新图表数据
 const updateChart = (data) => {
+  console.log("updateChart", data);
   if (myChart) {
     myChart.setOption({
       series: [
