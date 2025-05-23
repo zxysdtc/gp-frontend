@@ -1,7 +1,7 @@
 <template>
   <div class="algorithm-visualize-container">
     <header class="av-header">
-      <h2>算法可视化</h2>
+      <h2>算法详解</h2>
     </header>
 
     <div class="av-content">
@@ -16,7 +16,8 @@
               <option value="java">Java</option>
               <option value="c++">C++</option>
             </select>
-            <button @click="visualizeAlgorithm" :disabled="isLoading">运行</button>
+            <input type="text" v-model="algorithm" placeholder="请输入算法类型" />
+            <button style="padding: 5px 10px;" @click="generateCode" :disabled="isLoading">生成代码</button>
           </div>
           <textarea 
             v-model="algorithmCode"
@@ -35,28 +36,61 @@
 
       <!-- 可视化展示区 -->
       <div class="visualization-section">
-        <h3>可视化区</h3>
+        <h3>算法详解区</h3>
+        
         <div v-if="isLoading" class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
-          <p>生成可视化中...</p>
+          <p>生成算法详解中...</p>
         </div>
         <div v-else-if="visualizationHtml" class="visualization-container" v-html="visualizationHtml"></div>
         <div v-else class="empty-state">
-          <p>在代码区输入算法并点击运行按钮查看可视化结果</p>
+          <p>在代码区输入算法并点击生成算法详解按钮查看算法详解结果</p>
         </div>
+        <button @click="visualizeAlgorithm" :disabled="isLoading"
+        class="generate-algorithm-visualize-button"
+        >生成算法详解</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import apiClient from '@/api/axios';
+import { ElMessage } from 'element-plus';
+import { useRoute } from 'vue-router';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github.css';
 
+const route = useRoute();
 const algorithmCode = ref('');
 const selectedLanguage = ref('javascript');
 const visualizationHtml = ref('');
 const isLoading = ref(false);
+const algorithm = ref('');
+
+onMounted(() => {
+  if (route.query.algorithm) {
+    algorithm.value = route.query.algorithm;
+  }
+});
+
+// 生成代码
+const generateCode = async () => {
+  if (!algorithm.value) {
+    ElMessage.error('请输入算法类型');
+    return;
+  }
+  const response = await apiClient.post('/agent/completion', {
+    inputs: {
+      language: selectedLanguage.value,
+      algorithm: algorithm.value
+    },
+    scenery: 'ALGORITHM_CODE'
+  });
+
+  algorithmCode.value = response.data.answer.replace(/```\w+\n/, '').replace(/```$/, '');
+}
 
 // 算法模板加载函数
 const loadTemplate = (type) => {
@@ -260,6 +294,14 @@ fibonacci(10)`;
     default:
       algorithmCode.value = '// 请在此输入您的算法代码';
   }
+
+  // 高亮加载的模板代码
+  nextTick(() => {
+    const codeElement = document.querySelector('.code-editor');
+    if (codeElement) {
+      hljs.highlightBlock(codeElement);
+    }
+  });
 };
 
 const visualizeAlgorithm = async () => {
@@ -275,10 +317,11 @@ const visualizeAlgorithm = async () => {
       scenery: 'ALGORITHM_VISUALIZATION',
     });
     
-    visualizationHtml.value = response.data.answer;
+    const code = response.data.answer.replace(/```\w+\n/, '').replace(/```$/, '');
+    visualizationHtml.value = code;
   } catch (error) {
-    console.error('获取可视化结果失败:', error);
-    visualizationHtml.value = `<div class="error-message">可视化生成失败，请检查您的代码或稍后重试</div>`;
+    console.error('获取算法详解结果失败:', error);
+    visualizationHtml.value = `<div class="error-message">算法详解生成失败，请检查您的代码或稍后重试</div>`;
   } finally {
     isLoading.value = false;
   }
@@ -421,6 +464,22 @@ const visualizeAlgorithm = async () => {
   font-family: 'SF Pro Text', 'PingFang SC', sans-serif;
 }
 
+.generate-algorithm-visualize-button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background-color 0.2s;
+}
+.generate-algorithm-visualize-button:hover:not(:disabled) {
+  background-color: #3e9142;
+}
+.generate-algorithm-visualize-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
 /* 预定义可视化区域内的样式 */
 :deep(.visualization-header) {
   margin-bottom: 20px;
@@ -751,5 +810,17 @@ const visualizeAlgorithm = async () => {
   color: #d32f2f;
   text-align: center;
   padding: 20px;
+}
+
+:deep(.hljs) {
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  border-left: 3px solid #ccc;
 }
 </style>

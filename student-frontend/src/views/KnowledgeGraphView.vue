@@ -57,6 +57,7 @@
               <p><strong>空间复杂度：</strong>{{ selectedNode.properties.空间复杂度 }}</p>
               <p><strong>设计思想：</strong>{{ selectedNode.properties.设计思想 }}</p>
               <p><strong>适用场景：</strong>{{ selectedNode.properties.适用场景 }}</p>
+              <button @click="generateAlgorithmVisualize" class="generate-questions-button">生成算法详解</button>
             </div>
             <div v-if="selectedNode.type === '数据结构'">
               <p><strong>核心特性：</strong>{{ selectedNode.properties.核心特性 }}</p>
@@ -147,6 +148,7 @@
     </div>
     <!-- <video :src="videoUrl" controls v-if="videoUrl"></video> -->
 
+
     <!-- 题目展示弹窗 -->
     <el-dialog
       v-model="isQuestionDialogVisible"
@@ -218,7 +220,9 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import * as echarts from "echarts";
 import apiClient from "@/api/axios";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { useRouter } from "vue-router";
 
+const router = useRouter();
 
 const chart = ref(null);
 let myChart = null;
@@ -250,6 +254,17 @@ const isShowAnswers = ref(false);
 const isAnswerCorrect = ref([]);
 const isSubmitAnswer = ref(false);
 
+// 生成算法详解
+const generateAlgorithmVisualize = async () => {
+  //跳转到算法详解页面
+  router.push({
+    path: '/algorithm-visualize',
+    query: {
+      algorithm: selectedNode.value.name,
+    }
+  });
+
+}
 // 提交答案
 const submitAnswers = () => {
   console.log("题目数量：", generatedQuestions.value.length,"题目数量：", questionCount.value, "题目类型：" , questionType.value);

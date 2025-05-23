@@ -30,7 +30,7 @@
           </el-menu-item>
           <el-menu-item index="/algorithm-visualize">
             <el-icon><Compass /></el-icon>
-            <span>算法可视化</span>
+            <span>算法详解</span>
           </el-menu-item>
           <el-menu-item index="/resources">
             <el-icon><Collection /></el-icon>
@@ -120,7 +120,7 @@ const currentPage = computed(() => {
     '/home': '学生主页',
     '/knowledge-graph': '知识图谱',
     '/ai-assistant': '智能问答',
-    '/algorithm-visualize': '算法可视化',
+    '/algorithm-visualize': '算法详解',
     // '/resources': '学习资源',
     '/settings': '个人设置',
     '/help': '帮助中心'
