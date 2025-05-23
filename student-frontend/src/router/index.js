@@ -38,9 +38,9 @@ const router = createRouter({
       meta: { layout: 'main', requiresAuth: true }
     },
     {
-      path: '/learning-path',
-      name: 'learningPath',
-      component: () => import('@/views/LearningPathView.vue'),
+      path: '/algorithm-visualize',
+      name: 'algorithmVisualize',
+      component: () => import('@/views/AlgorithmVisualizeView.vue'),
       meta: { layout: 'main', requiresAuth: true }
     },
     {
