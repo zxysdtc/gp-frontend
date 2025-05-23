@@ -89,7 +89,7 @@
               :src="getAvatarSrc(editForm.avatarBase64)"
               :size="100"
             />
-            <con v-else class="avatar-uploader-icon"><Plus /></con>
+            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
           </el-upload>
         </el-form-item>
         <el-form-item label="名称">
