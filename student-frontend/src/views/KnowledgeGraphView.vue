@@ -906,7 +906,7 @@ const handleRelatedNodeHover = (related, isHover) => {
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   font-size: 13px;
-  width: 55%;
+  width: 50%;
   margin-right: 10px; /* 将视图切换按钮推到右边 */
 }
 
