@@ -9,10 +9,9 @@
         v-model="searchQuery"
         @input="handleSearch"
       />
-
       <select 
       v-model="selectedChapterKey"
-      style="margin-left: 10px; width: 100px;"
+      style="margin-left: 10px; margin-right: auto; width: 100px; height: 30px;"
       @change="handleChapterChange"
       >
       <option value="all">所有章节</option>
@@ -20,6 +19,11 @@
           第{{ i }}章
         </option>
       </select>
+      <!-- 新增：显示当前节点数和关系数 -->
+      <div class="node-relation-count">
+        当前展示：<span style="color: #4285f4; font-weight: bold; margin:0 15px;">节点数: {{ nodeCount }}</span> | <span style="margin-left: 15px; color: #34a853; font-weight: bold;">关系数: {{ relationCount }}</span>
+      </div>
+    
     </header>
     <div class="kg-main">
       <div class="graph-visualization">
@@ -55,6 +59,7 @@
         <div v-if="activeTab === 'details'">
           <div v-if="selectedNode">
             <h4>{{ selectedNode.title }}</h4>
+            <p><strong>章节：</strong>{{ selectedNode.chapterKey }}</p>
             <p><strong>描述：</strong>{{ selectedNode.description }}</p>
             <p>
               <strong>难度：</strong>{{
@@ -263,15 +268,25 @@ const isSubmitAnswer = ref(false);
 
 // 章节选择
 const selectedChapterKey = ref("all");
+const nodeCount = ref(0);
+const relationCount = ref(0);
+
 const handleChapterChange = () => {
   const nodes = selectedChapterKey.value === "all" 
     ? allNodes.value 
     : allNodes.value.filter(node => node.chapterKey == selectedChapterKey.value);
   
+  const links = allLinks.value.filter(link => 
+    nodes.some(node => node.id === link.source || node.id === link.target)
+  );
+
+  nodeCount.value = nodes.length;
+  relationCount.value = links.length;
+
   myChart.setOption({
     series: [{
       data: nodes,
-      links: allLinks.value
+      links: links
     }]
   });
 }
@@ -503,6 +518,10 @@ const initChart = async () => {
 
   myChart = echarts.init(chart.value);
   const { nodes, links } = await fetchGraphData();
+
+  // 初始化节点数和关系数
+  nodeCount.value = nodes.length;
+  relationCount.value = links.length;
 
   const option = {
     tooltip: {},
@@ -752,6 +771,9 @@ const handleSearch = () => {
     )
   );
 
+  nodeCount.value = filteredNodes.length;
+  relationCount.value = filteredLinks.length;
+
   myChart.setOption({
     series: [
       {
@@ -884,7 +906,8 @@ const handleRelatedNodeHover = (related, isHover) => {
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   font-size: 13px;
-  margin-right: auto; /* 将视图切换按钮推到右边 */
+  width: 55%;
+  margin-right: 10px; /* 将视图切换按钮推到右边 */
 }
 
 .view-toggles button {
@@ -1235,5 +1258,21 @@ const handleRelatedNodeHover = (related, isHover) => {
   padding: 10px;
   background-color: #f5f5f5;
   border-radius: 4px;
+}
+
+.node-relation-count {
+  margin-left: 10px; /* 与搜索框保持一定距离 */
+  padding: 0px 10px;
+  font-size: 14px;
+  color: #333;
+  display: inline-block; /* 确保与搜索框在同一行 */
+  vertical-align: middle; /* 垂直居中 */
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #ffffff;
+  height: 30px;
+  line-height: 30px;
+  text-align: center;
+  width: 27%;
 }
 </style>
