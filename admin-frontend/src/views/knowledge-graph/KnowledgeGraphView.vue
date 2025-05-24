@@ -56,21 +56,32 @@
         </div>
         <div class="details-panel-content">
           <div v-if="activeTab === 'details'">
-            <div v-if="selectedNode">
-              <h4>{{ selectedNode.title }}</h4>
-              <p>描述：{{ selectedNode.description }}</p>
-              <p>
-                难度：{{
-                  "★".repeat(selectedNode.difficulty) +
-                  "☆".repeat(5 - selectedNode.difficulty)
-                }}
-              </p>
-              <p>类型：{{ selectedNode.type }}</p>
+          <div v-if="selectedNode">
+            <h4>{{ selectedNode.title }}</h4>
+            <p><strong>章节：</strong>{{ selectedNode.chapterKey }}</p>
+            <p><strong>描述：</strong>{{ selectedNode.description }}</p>
+            <p>
+              <strong>难度：</strong>{{
+                "★".repeat(selectedNode.difficulty) +
+                "☆".repeat(5 - selectedNode.difficulty)
+              }}
+            </p>
+            <p><strong>类型：</strong>{{ selectedNode.type }}</p>
+            <div v-if="selectedNode.type === '算法'">
+              <p><strong>时间复杂度：</strong>{{ selectedNode.properties.时间复杂度 }}</p>
+              <p><strong>空间复杂度：</strong>{{ selectedNode.properties.空间复杂度 }}</p>
+              <p><strong>设计思想：</strong>{{ selectedNode.properties.设计思想 }}</p>
+              <p><strong>适用场景：</strong>{{ selectedNode.properties.适用场景 }}</p>
             </div>
-            <div v-else>
-              <p>请在左侧选择一个知识点查看详情。</p>
+            <div v-if="selectedNode.type === '数据结构'">
+              <p><strong>核心特性：</strong>{{ selectedNode.properties.核心特性 }}</p>
+              <p><strong>存储开销：</strong>{{ selectedNode.properties.存储开销 }}</p>
             </div>
           </div>
+          <div v-else>
+            <p>请在左侧选择一个知识点查看详情。</p>
+          </div>
+        </div>
           <div v-if="activeTab === 'related'">
             <h4>{{ selectedNode.title }}</h4>
             <div v-if="selectedNode && (selectedNode.inNodes || selectedNode.outNodes)">
