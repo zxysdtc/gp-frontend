@@ -9,6 +9,17 @@
         v-model="searchQuery"
         @input="handleSearch"
       />
+
+      <select 
+      v-model="selectedChapterKey"
+      style="margin-left: 10px; width: 100px;"
+      @change="handleChapterChange"
+      >
+      <option value="all">所有章节</option>
+        <option v-for="i in 8" :key="i" :value="i">
+          第{{ i }}章
+        </option>
+      </select>
     </header>
     <div class="kg-main">
       <div class="graph-visualization">
@@ -69,37 +80,32 @@
           </div>
         </div>
         <div v-if="activeTab === 'related'">
-          <div
-            v-if="
-              selectedNode &&
-              selectedNode.related &&
-              selectedNode.related.length > 0
-            "
-          >
-            <div
-              v-for="(group, relationType) in groupRelatedByType(
-                selectedNode.related
-              )"
-              :key="relationType"
-            >
-              <h6
-                style="
-                  font-size: 14px;
-                  font-weight: bold;
-                  margin-top: 10px;
-                  margin-bottom: 5px;
-                  color: #666;
-                "
-              >
-                {{ relationType }}
+          <h4>{{ selectedNode.title }}</h4>
+          <div v-if="selectedNode && (selectedNode.inNodes || selectedNode.outNodes)">
+            <div v-if="selectedNode.inNodes && selectedNode.inNodes.length > 0">
+              <h6 style="font-size: 14px; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #666;">
+                入节点
               </h6>
               <ul style="margin-left: 20px">
-                <li
-                  v-for="related in group"
-                  :key="related.id"
-                  style="margin-bottom: 5px; color: #333"
-                >
-                  - {{ related.title }}
+                <li @click="handleRelatedNodeClick(related)" 
+                @mouseenter="handleRelatedNodeHover(related, true)"
+                @mouseleave="handleRelatedNodeHover(related, false)"
+                v-for="related in selectedNode.inNodes" :key="related.id" style="margin-bottom: 5px; color: #333">
+                  - {{ related.title }} ({{ related.relationType }})
+                </li>
+              </ul>
+            </div>
+            <div v-if="selectedNode.outNodes && selectedNode.outNodes.length > 0">
+              <h6 style="font-size: 14px; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #666;">
+                出节点
+              </h6>
+              <ul style="margin-left: 20px">
+                <li 
+                @click="handleRelatedNodeClick(related)" 
+                @mouseenter="handleRelatedNodeHover(related, true)"
+                @mouseleave="handleRelatedNodeHover(related, false)"
+                v-for="related in selectedNode.outNodes" :key="related.id" style="margin-bottom: 5px; color: #333">
+                  - {{ related.title }} ({{ related.relationType }})
                 </li>
               </ul>
             </div>
@@ -109,6 +115,7 @@
 
         <div v-if="activeTab === 'resources'">
           <div class="resources-container">
+            <h4>{{ selectedNode.title }}</h4>
             <p
               v-if="
                 !normalResources && normalResources.length === 0 &&
@@ -253,6 +260,22 @@ const questionLevel = ref("");
 const isShowAnswers = ref(false);
 const isAnswerCorrect = ref([]);
 const isSubmitAnswer = ref(false);
+
+// 章节选择
+const selectedChapterKey = ref("all");
+const handleChapterChange = () => {
+  const nodes = selectedChapterKey.value === "all" 
+    ? allNodes.value 
+    : allNodes.value.filter(node => node.chapterKey == selectedChapterKey.value);
+  
+  myChart.setOption({
+    series: [{
+      data: nodes,
+      links: allLinks.value
+    }]
+  });
+}
+
 
 // 生成算法详解
 const generateAlgorithmVisualize = async () => {
@@ -422,6 +445,7 @@ const processGraphData = (data) => {
         id: node.id,
         name: node.name.replace(/['"]/g, ""),
         type: node.label[0],
+        chapterKey: node.properties.ID.substring(0, 2),
         properties: node.properties,
         title: node.properties.name,
         description: node.properties.内容,
@@ -528,19 +552,40 @@ const initChart = async () => {
   // 点击节点事件处理
   myChart.on("click", "series.graph", async (params) => {
     const node = params.data;
-    const related = allLinks.value
-      .filter((link) => link.source === node.id || link.target === node.id)
+    console.log("点击节点", node);
+    const inNodes = allLinks.value
+      .filter((link) => link.target === node.id)
       .map((link) => {
-        const relatedNode = allNodes.value.find(
-          (n) => n.id === (link.source === node.id ? link.target : link.source)
-        );
+        const relatedNode = allNodes.value.find((n) => n.id === link.source);
+        if (!relatedNode) {
+          console.warn(`未找到相关节点: ${link.source}`);
+          return null;
+        }
         return {
           id: relatedNode.id,
           title: relatedNode.title,
-          relationType: link.label, // 从 links 中提取关系类型
+          relationType: link.label,
         };
-      });
-    selectedNode.value = { ...node, related };
+      })
+      .filter(Boolean);
+
+    const outNodes = allLinks.value
+      .filter((link) => link.source === node.id)
+      .map((link) => {
+        const relatedNode = allNodes.value.find((n) => n.id === link.target);
+        if (!relatedNode) {
+          console.warn(`未找到相关节点: ${link.target}`);
+          return null;
+        }
+        return {
+          id: relatedNode.id,
+          title: relatedNode.title,
+          relationType: link.label,
+        };
+      })
+      .filter(Boolean);
+
+    selectedNode.value = { ...node, inNodes, outNodes };
 
     // 获取与当前节点相关的文件
     fetchResources(node);
@@ -744,6 +789,68 @@ const openFileInNewWindow = (file) => {
 
   // 在新页面中打开文件
   window.open(blobUrl, '_blank');
+};
+
+// 新增方法：处理相关节点
+const processRelatedNodes = (node) => {
+  const inNodes = allLinks.value
+    .filter((link) => link.target === node.id)
+    .map((link) => {
+      const relatedNode = allNodes.value.find((n) => n.id === link.source);
+      if (!relatedNode) {
+        console.warn(`未找到相关节点: ${link.source}`);
+        return null;
+      }
+      return {
+        id: relatedNode.id,
+        title: relatedNode.title,
+        relationType: link.label,
+      };
+    })
+    .filter(Boolean);
+
+  const outNodes = allLinks.value
+    .filter((link) => link.source === node.id)
+    .map((link) => {
+      const relatedNode = allNodes.value.find((n) => n.id === link.target);
+      if (!relatedNode) {
+        console.warn(`未找到相关节点: ${link.target}`);
+        return null;
+      }
+      return {
+        id: relatedNode.id,
+        title: relatedNode.title,
+        relationType: link.label,
+      };
+    })
+    .filter(Boolean);
+
+  return { ...node, inNodes, outNodes };
+};
+
+// 在 handleRelatedNodeClick 中使用 processRelatedNodes
+const handleRelatedNodeClick = (related) => {
+  console.log("点击相关节点:", related);
+  const node = allNodes.value.find(n => n.id === related.id);
+  if (node) {
+    selectedNode.value = processRelatedNodes(node);
+    myChart.dispatchAction({
+      type: 'focusNodeAdjacency',
+      dataIndex: allNodes.value.findIndex(n => n.id === node.id)
+    });
+  }
+};
+
+// 新增相关节点高亮处理
+const handleRelatedNodeHover = (related, isHover) => {
+  const node = allNodes.value.find(n => n.id === related.id);
+  if (node && myChart) {
+    myChart.dispatchAction({
+      type: isHover ? 'highlight' : 'downplay',
+      seriesIndex: 0,
+      dataIndex: allNodes.value.findIndex(n => n.id === node.id)
+    });
+  }
 };
 </script>
 
