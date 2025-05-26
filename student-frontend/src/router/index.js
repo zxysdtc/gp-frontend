@@ -73,6 +73,13 @@ const router = createRouter({
       name: 'resources',
       component: () => import('@/views/ResourcesView.vue'),
       meta: { layout: 'main', requiresAuth: true }
+    },
+    // 视频播放页
+    {
+      path: '/video-play',
+      name: 'videoPlay',
+      component: () => import('@/views/VideoPlayView.vue'),
+      meta: { layout: 'main', requiresAuth: true }
     }
   ]
 })

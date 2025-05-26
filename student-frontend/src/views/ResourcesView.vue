@@ -51,7 +51,7 @@
               <div class="resource-info">
                 <h4>{{ resource.title }}</h4>
               </div>
-              <el-button type="primary" @click="handleView(resource)">
+              <el-button type="primary" @click="handleVideoResourceView(resource)">
                 查看
               </el-button>
             </div>
@@ -105,6 +105,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { Search, VideoCamera, Document, FullScreen, Aim, Link } from "@element-plus/icons-vue";
+import { useRouter } from "vue-router";
 import * as echarts from "echarts";
 import apiClient from "@/api/axios";
 
@@ -117,21 +118,9 @@ const answer = ref("");
 const loading = ref(false);
 const isFullscreen = ref(false);
 let myChart = null;
-
+const router = useRouter();
 // 资源
 const videoResources = ref([]);
-
-// 获取资源类型显示文本
-const getResourceTypeText = (type) => {
-  const typeMap = {
-    'video': '视频',
-    'document': '文档',
-    'article': '文章',
-    'website': '网站',
-    'book': '书籍'
-  };
-  return typeMap[type] || type;
-};
 
 const handleSearch = async () => {
   if (!searchQuery.value.trim() || loading.value) return;
@@ -214,15 +203,24 @@ const handleSearch = async () => {
   }
 };
 
-const handleView = (resource) => {
+const handleVideoResourceView = (resource) => {
   if (resource.url) {
-    window.open(resource.url, "_blank");
+    console.log("准备跳转到视频播放页面：",resource);
+    window.open(
+      router.resolve({
+        path: '/video-play',
+        query: {
+          videoResource: JSON.stringify(resource)
+        }
+      }).href,
+      '_blank'
+    );
   } else {
     // 处理没有URL的资源
     console.log("该资源没有可访问的URL:", resource);
     // 可以显示一个提示
     ElMessage({
-      message: '该资源暂无可访问链接',
+      message: '该资源暂无视频资源',
       type: 'warning'
     });
   }
