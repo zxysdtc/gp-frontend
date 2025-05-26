@@ -16,14 +16,16 @@
           </template>
         </el-input>
       </div>
-      
+
       <!-- 搜索提示 -->
       <div class="search-tips" v-if="!isSearched">
         <el-empty description="输入关键词开始搜索学习资源">
           <template #description>
             <div>
               <p>输入关键词开始搜索学习资源</p>
-              <p class="search-examples">示例：数据结构、数组、链表、算法复杂度...</p>
+              <p class="search-examples">
+                示例：数据结构、数组、链表、算法复杂度...
+              </p>
             </div>
           </template>
         </el-empty>
@@ -36,7 +38,7 @@
         <!-- 左侧资源列表 -->
         <div v-if="!isFullscreen" class="resources-column">
           <h3>相关资源</h3>
-          
+
           <el-card
             v-for="(resource, index) in videoResources"
             :key="index"
@@ -51,7 +53,10 @@
               <div class="resource-info">
                 <h4>{{ resource.title }}</h4>
               </div>
-              <el-button type="primary" @click="handleVideoResourceView(resource)">
+              <el-button
+                type="primary"
+                @click="handleVideoResourceView(resource)"
+              >
                 查看
               </el-button>
             </div>
@@ -73,11 +78,11 @@
                 <el-button size="small" @click="toggleFullscreen">
                   <el-icon v-if="!isFullscreen"><FullScreen /></el-icon>
                   <el-icon v-else><Aim /></el-icon>
-                  {{ isFullscreen ? '退出全屏' : '全屏显示' }}
+                  {{ isFullscreen ? "退出全屏" : "全屏显示" }}
                 </el-button>
               </div>
             </div>
-            <div class="echarts-wrapper" :class="{ 'fullscreen': isFullscreen }">
+            <div class="echarts-wrapper" :class="{ fullscreen: isFullscreen }">
               <div ref="chart" class="chart"></div>
             </div>
           </div>
@@ -104,14 +109,22 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
-import { Search, VideoCamera, Document, FullScreen, Aim, Link } from "@element-plus/icons-vue";
+import {
+  Search,
+  VideoCamera,
+  Document,
+  FullScreen,
+  Aim,
+  Link,
+} from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 import * as echarts from "echarts";
 import apiClient from "@/api/axios";
+import { ElMessage } from "element-plus"; // 添加 ElMessage 导入
 
 const searchQuery = ref("");
 const nodesLinks = ref([]);
-const resources = ref([]);
+const resources = ref([]); // 保持这个引用，但下面会同步 videoResources
 const isSearched = ref(false);
 const chart = ref(null);
 const answer = ref("");
@@ -127,14 +140,16 @@ const handleSearch = async () => {
 
   try {
     loading.value = true;
-    
+
     // 清空之前的结果
     nodesLinks.value = [];
     answer.value = "";
-    
+    videoResources.value = [];
+    resources.value = [];
+
     // 设置已搜索状态
     isSearched.value = true;
-    
+
     // 发起请求
     const response = await apiClient.post("/agent/workflow", {
       inputs: {
@@ -142,12 +157,12 @@ const handleSearch = async () => {
       },
       scenery: "KNOWLEDGE_GRAPH",
     });
-    
+
     // 处理响应数据
     try {
-      console.log('response', response.data.data.outputs)
+      console.log("response", response.data.data.outputs);
       const testData = response.data.data.outputs.test;
-      if (typeof testData === 'string') {
+      if (typeof testData === "string") {
         nodesLinks.value = JSON.parse(testData)[0].result;
       } else {
         nodesLinks.value = testData;
@@ -156,37 +171,40 @@ const handleSearch = async () => {
       console.error("解析资源数据失败:", parseError);
       nodesLinks.value = [];
     }
-    
+
     answer.value = response.data.data.outputs.answer || "";
-    console.log('answer', answer.value)
-    console.log('nodes', nodesLinks.value)
-    const nodeIds = nodesLinks.value.nodes.map(node => node.id);
-    console.log('nodeIds', nodeIds)
+    console.log("answer", answer.value);
+    console.log("nodes", nodesLinks.value);
+    const nodeIds = nodesLinks.value.nodes.map((node) => node.properties.id);
+    console.log("nodeIds", nodeIds);
     const resourcesResponse = await apiClient.get("/graph/entities/resources", {
       params: {
-        nodeIds: nodeIds.join(',')
+        nodeIds: nodeIds.join(","),
       },
-      paramsSerializer: params => {
+      paramsSerializer: (params) => {
         return Object.keys(params)
-          .map(key => `${key}=${params[key]}`)
-          .join('&');
-      }
+          .map((key) => `${key}=${params[key]}`)
+          .join("&");
+      },
     });
-    
+
     // 处理返回的视频资源
-    videoResources.value = resourcesResponse.data.videoFile.map(video => ({
+    videoResources.value = resourcesResponse.data.videoFile.map((video) => ({
       id: video.fileId,
       title: video.fileName,
-      type: 'video',
-      description: '视频资源',
-      url: video.filePath || '#' // 如果 filePath 为 null，使用 '#' 作为占位符
+      type: "video",
+      description: "视频资源",
+      url: video.filePath || "#", // 如果 filePath 为 null，使用 '#' 作为占位符
     }));
-    
+
+    // 同步视频资源到 resources 变量
+    resources.value = [...videoResources.value];
+
     console.log("搜索到的数据:", videoResources.value);
 
     // 等待DOM更新后初始化图表
     await nextTick();
-    
+
     // 提取 result 字段并传递给 initChart
     if (nodesLinks.value) {
       initChart(nodesLinks.value);
@@ -196,8 +214,10 @@ const handleSearch = async () => {
   } catch (error) {
     console.error("搜索资源失败:", error);
     nodesLinks.value = [];
+    videoResources.value = [];
+    resources.value = [];
     // 显示错误提示
-    answer.value = `搜索失败: ${error.message || '未知错误'}`;
+    answer.value = `搜索失败: ${error.message || "未知错误"}`;
   } finally {
     loading.value = false;
   }
@@ -205,23 +225,23 @@ const handleSearch = async () => {
 
 const handleVideoResourceView = (resource) => {
   if (resource.url) {
-    console.log("准备跳转到视频播放页面：",resource);
+    console.log("准备跳转到视频播放页面：", resource);
     window.open(
       router.resolve({
-        path: '/video-play',
+        path: "/video-play",
         query: {
-          videoResource: JSON.stringify(resource)
-        }
+          videoResource: JSON.stringify(resource),
+        },
       }).href,
-      '_blank'
+      "_blank"
     );
   } else {
     // 处理没有URL的资源
     console.log("该资源没有可访问的URL:", resource);
     // 可以显示一个提示
     ElMessage({
-      message: '该资源暂无视频资源',
-      type: 'warning'
+      message: "该资源暂无视频资源",
+      type: "warning",
     });
   }
 };
@@ -231,31 +251,54 @@ const toggleFullscreen = async () => {
   // 保存当前滚动位置和布局状态
   if (!isFullscreen.value) {
     // 进入全屏前保存滚动位置
-    window._savedScrollPosition = window.scrollY || document.documentElement.scrollTop;
+    window._savedScrollPosition =
+      window.scrollY || document.documentElement.scrollTop;
   }
-  
+
   isFullscreen.value = !isFullscreen.value;
-  
+
   // 等待DOM更新后重新调整图表大小
   await nextTick();
-  
+
+  // 确保图表实例存在且有效
   if (myChart && !myChart.isDisposed()) {
-    myChart.resize();
-    console.log("图表大小已调整");
+    const chartContainer = chart.value;
+    
+    if (isFullscreen.value) {
+      // 进入全屏模式时调整容器尺寸
+      if (chartContainer) {
+        chartContainer.style.height = "calc(100vh - 100px)";
+        chartContainer.style.width = "100%";
+      }
+    } else {
+      // 退出全屏模式时恢复容器尺寸
+      if (chartContainer) {
+        chartContainer.style.height = "300px";
+        chartContainer.style.width = "100%";
+      }
+    }
+
+    // 延迟重新调整图表尺寸，确保DOM已经更新
+    setTimeout(() => {
+      myChart.resize();
+      myChart.renderToCanvas(); // 强制重新渲染
+      console.log("图表大小已调整并重新渲染");
+    }, 300);
+  } else {
+    console.error("图表实例不存在或已被销毁");
   }
-  
+
   // 恢复滚动位置
   if (!isFullscreen.value && window._savedScrollPosition !== undefined) {
     // 延迟执行，确保DOM已更新
     setTimeout(() => {
       window.scrollTo({
         top: window._savedScrollPosition,
-        behavior: 'auto'
+        behavior: "auto",
       });
-    }, 50);
+    }, 100);
   }
 };
-
 const initChart = (data) => {
   if (!chart.value) {
     console.warn("图表容器未找到，尝试延迟初始化");
@@ -276,10 +319,10 @@ const initChart = (data) => {
   if (myChart) {
     myChart.dispose();
   }
-  
+
   try {
     myChart = echarts.init(chart.value);
-    
+
     // 如果数据为空或无效，显示提示
     if (!data || !data.nodes || !data.links || data.nodes.length === 0) {
       console.error("图表数据无效:", data);
@@ -299,10 +342,13 @@ const initChart = (data) => {
     const uniqueNames = new Set();
 
     const processedNodes = data.nodes
-      .filter(node => node && (node.id !== undefined && node.id !== null) && node.name) // 过滤无效节点
+      .filter(
+        (node) => node && node.id !== undefined && node.id !== null && node.name
+      ) // 过滤无效节点
       .map((node, index) => {
         // 确保ID唯一
-        let nodeId = node.id !== undefined ? node.id.toString() : `node_${index}`;
+        let nodeId =
+          node.id !== undefined ? node.id.toString() : `node_${index}`;
         while (uniqueIds.has(nodeId)) {
           nodeId = `${nodeId}_${index}`;
         }
@@ -327,26 +373,29 @@ const initChart = (data) => {
       });
 
     // 创建节点ID集合，用于验证链接
-    const nodeIds = new Set(processedNodes.map(node => node.id));
+    const nodeIds = new Set(processedNodes.map((node) => node.id));
 
     // 处理链接数据，确保source和target使用正确的ID引用
     const processedLinks = data.links
-      .filter(link => {
+      .filter((link) => {
         // 过滤无效链接
         if (!link || link.source === undefined || link.target === undefined) {
           console.warn("发现无效链接:", link);
           return false;
         }
-        
+
         const sourceId = link.source.toString();
         const targetId = link.target.toString();
-        
+
         // 检查链接的源和目标节点是否存在
         if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) {
-          console.warn("链接引用了不存在的节点:", { source: sourceId, target: targetId });
+          console.warn("链接引用了不存在的节点:", {
+            source: sourceId,
+            target: targetId,
+          });
           return false;
         }
-        
+
         return true;
       })
       .map((link) => ({
@@ -473,10 +522,9 @@ const initChart = (data) => {
 
     // 应用配置
     myChart.setOption(option);
-    
+
     // 强制立即渲染
     myChart.renderToCanvas();
-    
   } catch (error) {
     console.error("图表初始化失败:", error);
   }
@@ -491,11 +539,11 @@ const resizeChart = () => {
 
 // 添加窗口大小变化监听
 onMounted(() => {
-  window.addEventListener('resize', resizeChart);
-  
+  window.addEventListener("resize", resizeChart);
+
   // ESC键退出全屏
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isFullscreen.value) {
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isFullscreen.value) {
       isFullscreen.value = false;
       nextTick().then(resizeChart);
     }
@@ -504,7 +552,7 @@ onMounted(() => {
 
 // 移除监听器
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeChart);
+  window.removeEventListener("resize", resizeChart);
   if (myChart) {
     myChart.dispose();
     myChart = null;
@@ -628,6 +676,12 @@ onBeforeUnmount(() => {
   height: calc(100vh - 80px);
 }
 
+.right-column:not(.fullscreen-mode) {
+  height: 100%;
+  max-height: 100%;
+  margin-bottom: 10%;
+}
+
 .chart {
   width: 100%;
   height: 100%;
@@ -730,7 +784,7 @@ onBeforeUnmount(() => {
   .two-column-layout {
     flex-direction: column;
   }
-  
+
   .resources-column,
   .right-column:not(.fullscreen-mode) {
     width: 100%;

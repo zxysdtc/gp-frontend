@@ -23,7 +23,7 @@ const video = ref({
   title: "",
   url: "",
 });
-const loading = ref(null);
+const loading = ref(true);
 const error = ref(null);
 
 console.log("脚本加载完成，开始处理视频资源");
