@@ -662,20 +662,6 @@ const toggleFullscreen = () => {
   }
 };
 
-// 获取视频资源
-const testfetchVideoResource = async () => {
-  try {
-    // 使用apiClient获取视频资源的blob
-    const response = await apiClient.get("/files/video/test", {
-      responseType: "blob",
-    });
-    // 创建一个本地Blob URL
-    videoUrl.value = URL.createObjectURL(response.data);
-  } catch (error) {
-    console.error("获取视频资源失败:", error);
-    videoUrl.value = "";
-  }
-};
 
 const fetchVideoResource = async () => {
   try {
@@ -726,9 +712,7 @@ onBeforeUnmount(() => {
 });
 
 const handleFullscreenChange = () => {
-  if (document.fullscreenElement) {
     myChart.resize();
-  }
 };
 
 // 处理搜索输入

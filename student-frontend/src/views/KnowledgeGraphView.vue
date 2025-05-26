@@ -752,9 +752,7 @@ onBeforeUnmount(() => {
 });
 
 const handleFullscreenChange = () => {
-  if (document.fullscreenElement) {
     myChart.resize();
-  }
 };
 
 // 处理搜索输入
