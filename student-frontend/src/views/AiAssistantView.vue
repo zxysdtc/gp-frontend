@@ -16,7 +16,6 @@
         >
           历史会话
         </button>
-
       </div>
       <div v-if="currentView === 'chat'">
         <button
@@ -59,12 +58,23 @@
             @click="switchAssistant(assistant.id)"
           >
             <div class="assistant-info">
-              <div style="display: flex; align-items: center;">
-                <img :src="imgSrc(assistant.avatar)" alt="助手头像" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
-                <div style="display: flex; flex-direction: column;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <h4 style="font-size: 16px; font-weight: bold;">{{ assistant.name }}</h4>
-                    <div style="display: flex; gap: 4px;">
+              <div style="display: flex; align-items: center">
+                <img
+                  :src="imgSrc(assistant.avatar)"
+                  alt="助手头像"
+                  style="
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    margin-right: 10px;
+                  "
+                />
+                <div style="display: flex; flex-direction: column">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <h4 style="font-size: 16px; font-weight: bold">
+                      {{ assistant.name }}
+                    </h4>
+                    <div style="display: flex; gap: 4px">
                       <span
                         v-for="tag in assistant.tags"
                         :key="tag"
@@ -75,7 +85,9 @@
                       </span>
                     </div>
                   </div>
-                  <p style="font-size: 12px; color: #666; margin-top: 0px;">{{ assistant.description }}</p>
+                  <p style="font-size: 12px; color: #666; margin-top: 0px">
+                    {{ assistant.description }}
+                  </p>
                 </div>
               </div>
             </div>
@@ -86,14 +98,31 @@
     <main class="chat-main">
       <header class="chat-header">
         <span v-if="!isEditingTitle">当前会话：{{ currentChatTitle }}</span>
-        <div v-else class="title-edit-container" style="position: relative; flex: 1; margin-right: 5px;">
+        <div
+          v-else
+          class="title-edit-container"
+          style="position: relative; flex: 1; margin-right: 5px"
+        >
           <input
             v-model="editingTitle"
             @keydown.enter="saveTitle"
             class="title-input"
-            style="width: 100%; padding-right: 5px; margin-right: 5px;"
+            style="width: 100%; padding-right: 5px; margin-right: 5px"
           />
-          <button class="star-button" @click="autoRenameTitle" style="position: absolute; right: 1px; top: 50%; transform: translateY(-50%); z-index: 2; background-color: white;">✨</button>
+          <button
+            class="star-button"
+            @click="autoRenameTitle"
+            style="
+              position: absolute;
+              right: 1px;
+              top: 50%;
+              transform: translateY(-50%);
+              z-index: 2;
+              background-color: white;
+            "
+          >
+            ✨
+          </button>
         </div>
         <button class="icon-button" @click="toggleEditTitle">
           <span v-if="!isEditingTitle">✏️</span>
@@ -158,21 +187,17 @@
       <button @click="toggleReferencePanel" class="collapse-toggle">
         {{ isReferenceCollapsed ? "🡸" : "🡺" }}
       </button>
-      <br>
-      <br>
+      <br />
+      <br />
       <div v-if="!isReferenceCollapsed">
         <h4>知识图谱</h4>
-        <div class="graph-visualization">
-          <div ref="chart" style="width: 100%; height: 100%"></div>
+        <div class="echarts-container">
+          <div ref="chart" class="chart"></div>
         </div>
       </div>
     </aside>
     <!-- 右键菜单 -->
-    <div
-      v-if="rightMenuVisible"
-      class="right-menu"
-      :style="rightMenuStyle"
-    >
+    <div v-if="rightMenuVisible" class="right-menu" :style="rightMenuStyle">
       <ul>
         <li @click="handleDeleteChat">删除</li>
       </ul>
@@ -181,10 +206,10 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from "vue";
 import apiClient from "@/api/axios";
 import { marked } from "marked";
-import * as echarts from 'echarts';
+import * as echarts from "echarts";
 import "github-markdown-css";
 const chart = ref(null);
 let myChart = null;
@@ -194,7 +219,6 @@ const rightMenuVisible = ref(false);
 const rightNodeData = ref(null);
 const contextmenuLeft = ref(0);
 const contextmenuTop = ref(0);
-
 
 const userApi = {
   getParameters: (assistantId) =>
@@ -222,9 +246,7 @@ const userApi = {
       `/chat/rename?assistantId=${assistantId}&chat_id=${chatId}&newName=${newName}`
     ),
   autoRenameConversation: (assistantId, chatId) =>
-    apiClient.post(
-      `/chat/rename?assistantId=${assistantId}&chat_id=${chatId}`
-    ),
+    apiClient.post(`/chat/rename?assistantId=${assistantId}&chat_id=${chatId}`),
   getAssistantList: () => apiClient.get("/dify/chatbots"),
   runWorkflow: (params) => apiClient.post("/agent/workflow", params),
 };
@@ -252,36 +274,14 @@ const currentChatTitle = computed(() => {
   return current ? current.title : newTitle.value;
 });
 
-const currentView = ref('chat'); // 当前视图，默认为会话视图
+const currentView = ref("chat"); // 当前视图，默认为会话视图
 const assistants = ref([]); // 助手列表
 
-// 知识图谱
-const graphData = ref([]);
-const fetchGraphData = async (message) => {
-  console.log("fetchGraphData");
-  try {
-    const response = await userApi.runWorkflow({
-      scenery: "KNOWLEDGE_GRAPH",
-      inputs: {
-        userQuery: message,
-        finalNodeCount: 15,
-      },
-    });
-    console.log("knowledge graph response:", response);
-    if (response.data.output.text.result && response.data.output.text.nodes && response.data.output.text.links) {
-      updateChart(response.data.output.text); // 更新图表数据
-    }
-  } catch (error) {
-    console.error("获取知识图谱数据失败:", error);
-  }
-};
-
-
 const imgSrc = (avatar) => {
-  if(avatar){
+  if (avatar) {
     return `data:image/jpeg;base64,${avatar}`;
   }
-  return require('@/assets/images/default-avatar.png');
+  return require("@/assets/images/default-avatar.png");
 };
 
 // 鼠标右键菜单
@@ -299,16 +299,16 @@ const closeRightMenu = () => {
 };
 
 // 监听点击事件，关闭右键菜单
-document.addEventListener('click', closeRightMenu);
+document.addEventListener("click", closeRightMenu);
 
 const createNewChat = async () => {
-  if(chatHistory.value.find(chat => chat.id === newChatId.value)){
+  if (chatHistory.value.find((chat) => chat.id === newChatId.value)) {
     return;
   }
   if (isLoading.value) return;
   isLoading.value = true;
   errorMessage.value = "";
-  
+
   try {
     const response = await userApi.getParameters(currentAssistantId.value);
     assistantOpeningStatement.value = response.data.openingStatement;
@@ -336,7 +336,6 @@ const createNewChat = async () => {
 // 发送消息
 const sendMessage = async () => {
   if (newMessage.value.trim() === "" || isLoading.value) return;
-
   const userMessageContent = newMessage.value;
   messages.value.push({
     sender: "user",
@@ -347,12 +346,12 @@ const sendMessage = async () => {
 
   isLoading.value = true;
   errorMessage.value = "";
- 
 
   // 滚动到底部以显示新消息和"正在思考"
   await nextTick(); // 等待DOM更新
   // 可能需要一个方法来滚动聊天区域到底部，例如：scrollToBottom();
-
+  await handleSearch(userMessageContent);
+  console.log("handleSearch运行完毕");
   try {
     const response = await fetch("http://localhost:8080/api/v1/chat/sse", {
       method: "POST",
@@ -366,7 +365,6 @@ const sendMessage = async () => {
         "Content-Type": "application/json",
       },
     });
-    fetchGraphData(userMessageContent);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let done = false;
@@ -416,8 +414,12 @@ const sendMessage = async () => {
             let encoded = line.slice(5);
             // console.log("encoded:", encoded);
             let binaryString = atob(encoded); // 解码为二进制字符串
-            let data = new TextDecoder('utf-8').decode(new Uint8Array([...binaryString].map(char => char.charCodeAt(0)))); // 将二进制字符串转换为 UTF-8 字符串
-   
+            let data = new TextDecoder("utf-8").decode(
+              new Uint8Array(
+                [...binaryString].map((char) => char.charCodeAt(0))
+              )
+            ); // 将二进制字符串转换为 UTF-8 字符串
+
             // console.log("answer:", data);
 
             answer += data;
@@ -505,7 +507,9 @@ const fetchConversationList = async () => {
     messages.value = [];
     console.log("清空会话，chatHistory.value:", chatHistory.value);
     // 注意：API参数已变更，不再需要startPage和pageSize
-    const response = await userApi.getConversationList(currentAssistantId.value);
+    const response = await userApi.getConversationList(
+      currentAssistantId.value
+    );
 
     if (
       response.data &&
@@ -545,20 +549,25 @@ const fetchConversationMessage = async (chatId) => {
   try {
     console.log("chatId:", chatId);
     console.log("chatHistory.value:", chatHistory.value);
-    const introduction = chatHistory.value.find(chat => chat.id === chatId).introduction;
+    const introduction = chatHistory.value.find(
+      (chat) => chat.id === chatId
+    ).introduction;
     console.log(`introduction: ${introduction}`);
     messages.value = [];
-    if(introduction){
+    if (introduction) {
       messages.value.push({
         sender: "ai",
         type: "text",
         content: introduction,
       });
     }
-    if(chatId == newChatId.value){
+    if (chatId == newChatId.value) {
       return;
     }
-    const response = await userApi.getConversationMessage(currentAssistantId.value, chatId);
+    const response = await userApi.getConversationMessage(
+      currentAssistantId.value,
+      chatId
+    );
 
     // 根据API响应结构调整处理方式
     if (
@@ -622,7 +631,7 @@ const autoRenameTitle = async () => {
   try {
     const response = await userApi.autoRenameConversation(
       currentAssistantId.value,
-      currentChatId.value,
+      currentChatId.value
     );
 
     const chat = chatHistory.value.find(
@@ -639,28 +648,29 @@ const autoRenameTitle = async () => {
 };
 
 const copyMessage = (content) => {
-  navigator.clipboard.writeText(content)
-  .then(() => {
-    const notification = document.createElement('div');
-    notification.textContent = '已复制到剪贴板';
-    notification.style.position = 'fixed';
-    notification.style.top = '20px';
-    notification.style.left = '50%';
-    notification.style.transform = 'translateX(-50%)';
-    notification.style.backgroundColor = '#f0f0f0';
-    notification.style.color = '#000';
-    notification.style.padding = '10px 20px';
-    notification.style.borderRadius = '4px';
-    notification.style.zIndex = '1000';
-    document.body.appendChild(notification);
+  navigator.clipboard
+    .writeText(content)
+    .then(() => {
+      const notification = document.createElement("div");
+      notification.textContent = "已复制到剪贴板";
+      notification.style.position = "fixed";
+      notification.style.top = "20px";
+      notification.style.left = "50%";
+      notification.style.transform = "translateX(-50%)";
+      notification.style.backgroundColor = "#f0f0f0";
+      notification.style.color = "#000";
+      notification.style.padding = "10px 20px";
+      notification.style.borderRadius = "4px";
+      notification.style.zIndex = "1000";
+      document.body.appendChild(notification);
 
-    setTimeout(() => {
-      document.body.removeChild(notification);
-    }, 1000);
-  })
-  .catch((err) => {
-    console.error("复制失败:", err);
-  });
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 1000);
+    })
+    .catch((err) => {
+      console.error("复制失败:", err);
+    });
 };
 
 const regenerateMessage = (index) => {
@@ -691,72 +701,14 @@ const getRandomColor = () => {
 };
 
 // 切换助手
-const switchAssistant =  async (assistantId) => {
+const switchAssistant = async (assistantId) => {
   currentAssistantId.value = assistantId;
   console.log(`切换到助手: ${assistantId}`);
   // 这里可以添加切换助手的逻辑，例如重新获取会话列表等
-  
+
   fetchConversationList();
   const response = await userApi.getParameters(assistantId);
   assistantOpeningStatement.value = response.data.openingStatement;
-
-};
-
-// 初始化 ECharts 图表
-const initChart = () => {
-  if (chart.value) {
-    myChart = echarts.init(chart.value);
-    myChart.setOption({
-      tooltip: {},
-      animationDurationUpdate: 1500,
-      animationEasingUpdate: 'quinticInOut',
-      series: [
-        {
-          type: 'graph',
-          layout: 'force',
-          force: {
-            repulsion: 100,
-            edgeLength: 100,
-          },
-          data: [],
-          links: [],
-          roam: true,
-          label: {
-            show: true,
-          },
-          lineStyle: {
-            color: 'source',
-            curveness: 0.3,
-          },
-        },
-      ],
-    });
-  }
-};
-
-// 更新图表数据
-const updateChart = (data) => {
-  console.log("updateChart", data);
-  if (myChart) {
-    myChart.setOption({
-      series: [
-        {
-          data: data.nodes,
-          links: data.links,
-        },
-      ],
-    });
-  }
-};
-
-// 发送 Cypher 查询并更新图表
-const sendCypherQuery = async (cypherQuery) => {
-  try {
-    const response = await apiClient.post('/graph/query', { query: cypherQuery });
-    updateChart(response.data);
-  } catch (error) {
-    console.error('Cypher 查询失败:', error);
-  }
 };
 
 // 在组件加载时初始化图表
@@ -764,7 +716,7 @@ onMounted(async () => {
   await fetchAssistantList();
   currentAssistantId.value = assistants.value[0].id;
   await fetchConversationList();
-  initChart();
+  // 移除这里的 initChart() 调用，因为没有数据时不需要初始化
 });
 
 // 在组件销毁时销毁图表
@@ -787,6 +739,229 @@ const handleDeleteChat = () => {
     closeRightMenu(); // 关闭右键菜单
   }
 };
+
+// 知识图谱
+const resources = ref([]);
+const isSearched = ref(false);
+const handleSearch = async (userMessageContent) => {
+  try {
+    const response = await apiClient.post("/agent/workflow", {
+      inputs: {
+        query: userMessageContent,
+      },
+      scenery: "KNOWLEDGE_GRAPH",
+    });
+    resources.value = JSON.parse(response.data.data.outputs.text);
+    isSearched.value = true;
+    console.log("搜索到的数据:", resources.value);
+
+    // 提取 result 字段并传递给 initChart
+    if (resources.value.length > 0 && resources.value[0].result) {
+      pendingChartData = resources.value[0].result;
+      
+      // 如果参考面板是展开的，立即初始化图表
+      if (!isReferenceCollapsed.value) {
+        await nextTick(); // 等待DOM更新
+        initChart(pendingChartData);
+      } else {
+        // 如果面板是收起的，自动展开面板
+        isReferenceCollapsed.value = false;
+        await nextTick(); // 等待DOM渲染
+        initChart(pendingChartData);
+      }
+    } else {
+      console.error("数据格式不符合预期:", resources.value);
+    }
+  } catch (error) {
+    console.error("搜索资源失败:", error);
+    resources.value = [];
+  }
+  console.log("搜索到的数据:", resources.value);
+};
+
+const initChart = (data) => {
+  // 如果参考面板是收起状态，不初始化图表
+  if (isReferenceCollapsed.value) {
+    console.log("参考面板收起，跳过图表初始化");
+    return;
+  }
+  
+  if (!chart.value) {
+    console.error("图表容器未找到");
+    return;
+  }
+
+  // 确保 Canvas 元素有正确的尺寸
+  const chartElement = chart.value;
+  if (chartElement.offsetWidth === 0 || chartElement.offsetHeight === 0) {
+    console.error("图表容器的宽度或高度为 0");
+    return;
+  }
+
+  // 确保清除旧图表实例
+  echarts.dispose(chart.value);
+  const myChart = echarts.init(chart.value);
+
+  // 如果数据为空或无效，显示提示
+  if (!data || !data.nodes || !data.links || data.nodes.length === 0) {
+    console.error("图表数据无效:", data);
+    myChart.setOption({
+      title: {
+        text: "没有可显示的知识图谱数据",
+        left: "center",
+        top: "center",
+        textStyle: { fontSize: 14 },
+      },
+    });
+    return;
+  }
+
+  console.log("图表数据:", data);
+
+  // 预处理数据，确保节点有唯一标识
+  const processedNodes = data.nodes.map((node) => ({
+    ...node,
+    id: node.id.toString(),
+    name: node.name,
+    symbolSize: 45, // 减小节点大小以适应较小的图表区域
+    itemStyle: {
+      color: node.label === "数据结构" ? "#91cc75" : "#5470c6",
+    },
+  }));
+
+  // 处理链接数据，确保source和target使用正确的ID引用
+  const processedLinks = data.links.map((link) => ({
+    source: link.source.toString(),
+    target: link.target.toString(),
+    relation: link.relation,
+    label: {
+      show: true,
+      formatter: link.relation,
+    },
+    lineStyle: {
+      width: 2,
+      curveness: 0.2,
+    },
+  }));
+
+  // 调试输出处理后的数据
+  console.log("处理后的节点:", processedNodes);
+  console.log("处理后的链接:", processedLinks);
+
+  const option = {
+    backgroundColor: "#f5f5f5",
+    tooltip: {
+      trigger: "item",
+      confine: false,
+      appendToBody: true,
+      position: function (point, params, dom, rect, size) {
+        // 始终在鼠标左侧显示
+        return [point[0] - size.contentSize[0] - 20, point[1]];
+      },
+      formatter: (params) => {
+        if (params.dataType === "node") {
+          // 为节点提供更详细、更好格式化的提示
+          const properties = params.data.properties || {};
+          let content = `<div style="max-width: 300px; word-wrap: break-word;">`;
+          content += `<strong style="font-size: 16px;">${params.data.name}</strong>`;
+
+          if (properties.内容) {
+            content += `<p style="margin: 5px 0; font-size: 14px;">${properties.内容}</p>`;
+          }
+
+          // 添加其他可能有用的属性
+          const additionalProps = ["难度", "核心特性", "存储开销"];
+          additionalProps.forEach((prop) => {
+            if (properties[prop]) {
+              content += `<p style="margin: 3px 0; font-size: 13px;"><strong>${prop}：</strong>${properties[prop]}</p>`;
+            }
+          });
+
+          content += `</div>`;
+          return content;
+        } else {
+          return `<span style="font-weight: bold;">${
+            params.data.relation || ""
+          }</span>`;
+        }
+      },
+      extraCssText:
+        "max-width: 300px; white-space: normal; box-shadow: 0 2px 10px rgba(0,0,0,0.2); padding: 10px; border-radius: 5px;",
+    },
+    legend: {
+      show: false, // 隐藏图例以节省空间
+    },
+    animationDurationUpdate: 1500,
+    animationEasingUpdate: "quinticInOut",
+    series: [
+      {
+        type: "graph",
+        layout: "force",
+        force: {
+          repulsion: 150, // 减小斥力
+          gravity: 0.1,
+          edgeLength: 100, // 减小边长
+          layoutAnimation: true,
+        },
+        roam: true,
+        zoom: 1.2, // 稍微放大以便在小区域中看清
+        draggable: true,
+        data: processedNodes,
+        links: processedLinks,
+        label: {
+          show: true,
+          position: "inside",
+          fontSize: 12, // 减小字体大小
+          color: "#000",
+          fontWeight: "bold",
+          formatter: ({ name }) => name,
+        },
+        emphasis: {
+          focus: "adjacency",
+          lineStyle: {
+            width: 3,
+          },
+        },
+        edgeSymbol: ["none", "arrow"],
+        edgeLabel: {
+          show: true,
+          position: "middle",
+          formatter: ({ data }) => data?.relation || "",
+          fontSize: 11, // 减小字体大小
+          backgroundColor: "rgba(255,255,255,0.7)",
+          padding: [3, 6],
+          borderRadius: 3,
+        },
+        lineStyle: {
+          color: "#666",
+          width: 1.5,
+          opacity: 0.9,
+          curveness: 0,
+        },
+      },
+    ],
+  };
+
+  myChart.setOption(option);
+  // 强制立即渲染
+  myChart.renderToCanvas();
+
+  // 添加窗口大小变化时图表自适应
+  window.addEventListener("resize", () => {
+    myChart.resize();
+  });
+};
+
+// 添加监听器，当参考面板展开时初始化图表
+let pendingChartData = null;
+
+watch(isReferenceCollapsed, async (newValue) => {
+  if (!newValue && pendingChartData) {
+    // 面板展开了，且有待渲染的数据
+    await nextTick(); // 等待DOM渲染完成
+    initChart(pendingChartData);
+  }
+});
 </script>
 
 <style scoped>
@@ -1098,16 +1273,6 @@ const handleDeleteChat = () => {
   height: 100%; /* 确保参考面板高度占满父容器 */
 }
 
-.graph-visualization {
-  flex: 3; /* 占 75% */
-  background-color: #FFFFFF;
-  border-radius: 12px;
-  box-shadow: 0px 1px 3px rgba(0,0,0,0.1);
-  position: relative;
-  width: 100%;
-  height: 100%;
-  cursor: grab;
-}
 .reference-panel.collapsed {
   width: 40px;
   padding: 15px 5px;
@@ -1369,4 +1534,22 @@ const handleDeleteChat = () => {
   background-color: #f0f2f5;
 }
 
+/* 知识图谱样式 */
+.echarts-container {
+  margin-bottom: 30px;
+  width: 95%; /* 减小宽度 */
+  height: 250px;
+  float: right; /* 靠右显示 */
+  border-radius: 8px;
+  overflow: visible; /* 改为 visible，允许 tooltip 溢出容器 */
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  margin-left: 20px; /* 与其他内容保持间距 */
+  position: relative; /* 添加相对定位 */
+  z-index: 10; /* 确保图表和 tooltip 在较高层级 */
+}
+
+.chart {
+  width: 100%;
+  height: 100%;
+}
 </style>

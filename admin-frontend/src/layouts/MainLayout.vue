@@ -32,10 +32,10 @@
             </template>
             <el-menu-item index="/knowledge-graph">知识图谱</el-menu-item>
             <el-menu-item index="/knowledge-graph-generate">生成知识图谱</el-menu-item>
-            <el-menu-item index="/knowledge-graph/nodes">节点管理</el-menu-item>
+            <!-- <el-menu-item index="/knowledge-graph/nodes">节点管理</el-menu-item> -->
           </el-sub-menu>
 
-          <el-sub-menu index="/exercises">
+          <!-- <el-sub-menu index="/exercises">
             <template #title>
               <el-icon><Document /></el-icon>
               <span>习题管理</span>
@@ -43,7 +43,7 @@
             <el-menu-item index="/exercises/generate">生成习题</el-menu-item>
             <el-menu-item index="/exercises/list">习题列表</el-menu-item>
             <el-menu-item index="/exercises/analysis">习题分析</el-menu-item>
-          </el-sub-menu>
+          </el-sub-menu> -->
         </el-menu>
       </el-aside>
 
