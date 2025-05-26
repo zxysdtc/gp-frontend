@@ -9,18 +9,28 @@
         v-model="searchQuery"
         @input="handleSearch"
       />
-      <select 
+      <select
         v-model="selectedChapterKey"
-        style="margin-left: 10px; margin-right: auto; width: 100px; height: 30px;"
+        style="
+          margin-left: 10px;
+          margin-right: auto;
+          width: 100px;
+          height: 30px;
+        "
         @change="handleChapterChange"
       >
         <option value="all">所有章节</option>
-        <option v-for="i in 8" :key="i" :value="i">
-          第{{ i }}章
-        </option>
+        <option v-for="i in 8" :key="i" :value="i">第{{ i }}章</option>
       </select>
       <div class="node-relation-count">
-        当前展示：<span style="color: #4285f4; font-weight: bold; margin:0 15px;">节点数: {{ nodeCount }}</span> | <span style="margin-left: 15px; color: #34a853; font-weight: bold;">关系数: {{ relationCount }}</span>
+        当前展示：<span
+          style="color: #4285f4; font-weight: bold; margin: 0 15px"
+          >节点数: {{ nodeCount }}</span
+        >
+        |
+        <span style="margin-left: 15px; color: #34a853; font-weight: bold"
+          >关系数: {{ relationCount }}</span
+        >
       </div>
     </header>
     <div class="kg-main">
@@ -56,58 +66,108 @@
         </div>
         <div class="details-panel-content">
           <div v-if="activeTab === 'details'">
-          <div v-if="selectedNode">
-            <h4>{{ selectedNode.title }}</h4>
-            <p><strong>章节：</strong>{{ selectedNode.chapterKey }}</p>
-            <p><strong>描述：</strong>{{ selectedNode.description }}</p>
-            <p>
-              <strong>难度：</strong>{{
-                "★".repeat(selectedNode.difficulty) +
-                "☆".repeat(5 - selectedNode.difficulty)
-              }}
-            </p>
-            <p><strong>类型：</strong>{{ selectedNode.type }}</p>
-            <div v-if="selectedNode.type === '算法'">
-              <p><strong>时间复杂度：</strong>{{ selectedNode.properties.时间复杂度 }}</p>
-              <p><strong>空间复杂度：</strong>{{ selectedNode.properties.空间复杂度 }}</p>
-              <p><strong>设计思想：</strong>{{ selectedNode.properties.设计思想 }}</p>
-              <p><strong>适用场景：</strong>{{ selectedNode.properties.适用场景 }}</p>
+            <div v-if="selectedNode">
+              <h4>{{ selectedNode.title }}</h4>
+              <p><strong>章节：</strong>{{ selectedNode.chapterKey }}</p>
+              <p><strong>描述：</strong>{{ selectedNode.description }}</p>
+              <p>
+                <strong>难度：</strong
+                >{{
+                  "★".repeat(selectedNode.difficulty) +
+                  "☆".repeat(5 - selectedNode.difficulty)
+                }}
+              </p>
+              <p><strong>类型：</strong>{{ selectedNode.type }}</p>
+              <div v-if="selectedNode.type === '算法'">
+                <p>
+                  <strong>时间复杂度：</strong
+                  >{{ selectedNode.properties.时间复杂度 }}
+                </p>
+                <p>
+                  <strong>空间复杂度：</strong
+                  >{{ selectedNode.properties.空间复杂度 }}
+                </p>
+                <p>
+                  <strong>设计思想：</strong
+                  >{{ selectedNode.properties.设计思想 }}
+                </p>
+                <p>
+                  <strong>适用场景：</strong
+                  >{{ selectedNode.properties.适用场景 }}
+                </p>
+              </div>
+              <div v-if="selectedNode.type === '数据结构'">
+                <p>
+                  <strong>核心特性：</strong
+                  >{{ selectedNode.properties.核心特性 }}
+                </p>
+                <p>
+                  <strong>存储开销：</strong
+                  >{{ selectedNode.properties.存储开销 }}
+                </p>
+              </div>
             </div>
-            <div v-if="selectedNode.type === '数据结构'">
-              <p><strong>核心特性：</strong>{{ selectedNode.properties.核心特性 }}</p>
-              <p><strong>存储开销：</strong>{{ selectedNode.properties.存储开销 }}</p>
+            <div v-else>
+              <p>请在左侧选择一个知识点查看详情。</p>
             </div>
           </div>
-          <div v-else>
-            <p>请在左侧选择一个知识点查看详情。</p>
-          </div>
-        </div>
           <div v-if="activeTab === 'related'">
             <h4>{{ selectedNode.title }}</h4>
-            <div v-if="selectedNode && (selectedNode.inNodes || selectedNode.outNodes)">
-              <div v-if="selectedNode.inNodes && selectedNode.inNodes.length > 0">
-                <h6 style="font-size: 14px; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #666;">
+            <div
+              v-if="
+                selectedNode && (selectedNode.inNodes || selectedNode.outNodes)
+              "
+            >
+              <div
+                v-if="selectedNode.inNodes && selectedNode.inNodes.length > 0"
+              >
+                <h6
+                  style="
+                    font-size: 14px;
+                    font-weight: bold;
+                    margin-top: 10px;
+                    margin-bottom: 5px;
+                    color: #666;
+                  "
+                >
                   入节点
                 </h6>
                 <ul style="margin-left: 20px">
-                  <li @click="handleRelatedNodeClick(related)" 
-                  @mouseenter="handleRelatedNodeHover(related, true)"
-                  @mouseleave="handleRelatedNodeHover(related, false)"
-                  v-for="related in selectedNode.inNodes" :key="related.id" style="margin-bottom: 5px; color: #333">
+                  <li
+                    @click="handleRelatedNodeClick(related)"
+                    @mouseenter="handleRelatedNodeHover(related, true)"
+                    @mouseleave="handleRelatedNodeHover(related, false)"
+                    v-for="related in selectedNode.inNodes"
+                    :key="related.id"
+                    style="margin-bottom: 5px; color: #333"
+                  >
                     - {{ related.title }} ({{ related.relationType }})
                   </li>
                 </ul>
               </div>
-              <div v-if="selectedNode.outNodes && selectedNode.outNodes.length > 0">
-                <h6 style="font-size: 14px; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #666;">
+              <div
+                v-if="selectedNode.outNodes && selectedNode.outNodes.length > 0"
+              >
+                <h6
+                  style="
+                    font-size: 14px;
+                    font-weight: bold;
+                    margin-top: 10px;
+                    margin-bottom: 5px;
+                    color: #666;
+                  "
+                >
                   出节点
                 </h6>
                 <ul style="margin-left: 20px">
-                  <li 
-                  @click="handleRelatedNodeClick(related)" 
-                  @mouseenter="handleRelatedNodeHover(related, true)"
-                  @mouseleave="handleRelatedNodeHover(related, false)"
-                  v-for="related in selectedNode.outNodes" :key="related.id" style="margin-bottom: 5px; color: #333">
+                  <li
+                    @click="handleRelatedNodeClick(related)"
+                    @mouseenter="handleRelatedNodeHover(related, true)"
+                    @mouseleave="handleRelatedNodeHover(related, false)"
+                    v-for="related in selectedNode.outNodes"
+                    :key="related.id"
+                    style="margin-bottom: 5px; color: #333"
+                  >
                     - {{ related.title }} ({{ related.relationType }})
                   </li>
                 </ul>
@@ -131,38 +191,26 @@
                 暂无学习资料，请上传相关文件
               </p>
               <div v-if="normalResources && normalResources.length > 0">
-                <p
-                  style="
-                    margin-bottom: 10px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    color: #333;
-                  "
-                >
-                  文档资料
-                </p>
+                <p class="resources-title">文档资料</p>
                 <div v-for="file in normalResources" :key="file.id">
                   <a
                     target="_blank"
                     @click="openFileInNewWindow(file)"
                     class="file-link"
                     :title="file.fileName"
-                    style="display: inline-block; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                  >{{ file.fileName }}</a>
+                    style="
+                      display: inline-block;
+                      max-width: 250px;
+                      white-space: nowrap;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                    "
+                    >{{ file.fileName }}</a
+                  >
                 </div>
-                <br />
               </div>
               <div v-if="videoUrls && videoUrls.length > 0">
-                <p
-                  style="
-                    margin-bottom: 10px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    color: #333;
-                  "
-                >
-                  视频资料
-                </p>
+                <p class="resources-title">视频资料</p>
                 <div v-for="videoUrl in videoUrls" :key="videoUrl">
                   <p
                     style="
@@ -182,55 +230,15 @@
                 </div>
               </div>
 
-              <br />
-
-              <el-upload
-                class="resource-uploader"
-                drag
-                action="#"
-                :http-request="handleUploadRequest"
-                accept=".pdf,.mp4,.docx,.doc"
-                :on-change="handleFileChange"
-                :file-list="fileList"
-                :limit="5"
-                multiple
-              >
-                <i class="el-icon-upload"></i>
-                <div class="el-upload__text">
-                  拖拽文件至此处或 <em>点击上传</em>
-                </div>
-                <div class="resource-uploader-tip">
-                  <div class="file-types">
-                    <span class="file-type pdf"
-                      ><i class="el-icon-document"></i> PDF</span
-                    >
-                    <span class="file-type video"
-                      ><i class="el-icon-video-camera"></i> MP4</span
-                    >
-                    <span class="file-type doc"
-                      ><i class="el-icon-document-copy"></i> DOC/DOCX</span
-                    >
-                  </div>
-                </div>
-              </el-upload>
-
               <div class="upload-action">
                 <el-button
                   type="primary"
-                  @click="uploadResources"
-                  :disabled="!fileList || fileList.length === 0"
+                  @click="showUploadDialog = true"
+                  :disabled="!selectedNode"
                   class="upload-button"
                   icon="el-icon-upload2"
                 >
                   上传学习资料
-                </el-button>
-                <el-button
-                  plain
-                  @click="fileList = []"
-                  :disabled="!fileList || fileList.length === 0"
-                  icon="el-icon-delete"
-                >
-                  清空列表
                 </el-button>
               </div>
             </div>
@@ -239,6 +247,62 @@
       </aside>
     </div>
     <!-- <video :src="videoUrl" controls v-if="videoUrl"></video> -->
+
+    <!-- 添加上传弹窗 -->
+    <el-dialog
+      v-model="showUploadDialog"
+      title="上传学习资料"
+      width="500px"
+      :before-close="handleCloseUploadDialog"
+    >
+      <div class="upload-dialog-content">
+        <p class="upload-tip">
+          为 <strong>{{ selectedNode?.title }}</strong> 上传学习资料
+        </p>
+
+        <el-upload
+          class="resource-uploader"
+          drag
+          action="#"
+          :http-request="handleUploadRequest"
+          accept=".pdf,.mp4,.docx,.doc"
+          :on-change="handleFileChange"
+          :file-list="fileList"
+          :limit="5"
+          multiple
+        >
+          <i class="el-icon-upload"></i>
+          <div class="el-upload__text">拖拽文件至此处或 <em>点击上传</em></div>
+          <div class="resource-uploader-tip">
+            <div class="file-types">
+              <span class="file-type pdf"
+                ><i class="el-icon-document"></i> PDF</span
+              >
+              <span class="file-type video"
+                ><i class="el-icon-video-camera"></i> MP4</span
+              >
+              <span class="file-type doc"
+                ><i class="el-icon-document-copy"></i> DOC/DOCX</span
+              >
+            </div>
+          </div>
+        </el-upload>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="handleCloseUploadDialog">取消</el-button>
+          <el-button
+            type="primary"
+            @click="uploadResources"
+            :disabled="!fileList || fileList.length === 0"
+            :loading="uploading"
+          >
+            {{ uploading ? "上传中..." : "确认上传" }}
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -266,6 +330,8 @@ const videoUrls = ref([]);
 const selectedChapterKey = ref("all");
 const nodeCount = ref(0);
 const relationCount = ref(0);
+const showUploadDialog = ref(false);
+const uploading = ref(false);
 
 const handleUploadRequest = (options) => {
   console.log("上传学习资料handleUploadRequest", options.file);
@@ -284,15 +350,17 @@ const uploadResources = async () => {
     return;
   }
 
-  const formData = new FormData();
-  fileList.value.forEach((file) => {
-    formData.append("files", file.raw);
-  });
-  console.log("selectedNode.value", selectedNode.value);
   if (!selectedNode.value) {
     ElMessage.warning("请先选择一个知识点");
     return;
   }
+
+  uploading.value = true;
+  const formData = new FormData();
+  fileList.value.forEach((file) => {
+    formData.append("files", file.raw);
+  });
+
   formData.append("nodeId", selectedNode.value.id);
   try {
     console.log("上传学习资料uploadResources", formData);
@@ -303,6 +371,7 @@ const uploadResources = async () => {
     if (response.status === 200) {
       ElMessage.success("文件上传成功");
       fileList.value = [];
+      showUploadDialog.value = false;
       // 重新获取资源列表
       if (selectedNode.value) {
         fetchResources(selectedNode.value);
@@ -312,8 +381,9 @@ const uploadResources = async () => {
     }
   } catch (error) {
     ElMessage.error("文件上传失败");
+  } finally {
+    uploading.value = false;
   }
-  fileList.value = [];
 };
 
 // 获取知识图谱数据
@@ -715,44 +785,49 @@ const openFileInNewWindow = (file) => {
 };
 
 const handleChapterChange = () => {
-  const nodes = selectedChapterKey.value === "all" 
-    ? allNodes.value 
-    : allNodes.value.filter(node => node.chapterKey == selectedChapterKey.value);
-  
-  const links = allLinks.value.filter(link => 
-    nodes.some(node => node.id === link.source || node.id === link.target)
+  const nodes =
+    selectedChapterKey.value === "all"
+      ? allNodes.value
+      : allNodes.value.filter(
+          (node) => node.chapterKey == selectedChapterKey.value
+        );
+
+  const links = allLinks.value.filter((link) =>
+    nodes.some((node) => node.id === link.source || node.id === link.target)
   );
 
   nodeCount.value = nodes.length;
   relationCount.value = links.length;
 
   myChart.setOption({
-    series: [{
-      data: nodes,
-      links: links
-    }]
+    series: [
+      {
+        data: nodes,
+        links: links,
+      },
+    ],
   });
-}
+};
 
 const handleRelatedNodeClick = (related) => {
   console.log("点击相关节点:", related);
-  const node = allNodes.value.find(n => n.id === related.id);
+  const node = allNodes.value.find((n) => n.id === related.id);
   if (node) {
     selectedNode.value = processRelatedNodes(node);
     myChart.dispatchAction({
-      type: 'focusNodeAdjacency',
-      dataIndex: allNodes.value.findIndex(n => n.id === node.id)
+      type: "focusNodeAdjacency",
+      dataIndex: allNodes.value.findIndex((n) => n.id === node.id),
     });
   }
 };
 
 const handleRelatedNodeHover = (related, isHover) => {
-  const node = allNodes.value.find(n => n.id === related.id);
+  const node = allNodes.value.find((n) => n.id === related.id);
   if (node && myChart) {
     myChart.dispatchAction({
-      type: isHover ? 'highlight' : 'downplay',
+      type: isHover ? "highlight" : "downplay",
       seriesIndex: 0,
-      dataIndex: allNodes.value.findIndex(n => n.id === node.id)
+      dataIndex: allNodes.value.findIndex((n) => n.id === node.id),
     });
   }
 };
@@ -792,9 +867,18 @@ const processRelatedNodes = (node) => {
 
   return { ...node, inNodes, outNodes };
 };
+
+const handleCloseUploadDialog = () => {
+  showUploadDialog.value = false;
+  fileList.value = [];
+};
 </script>
 
 <style scoped>
+.details-panel-content h4 {
+  margin-bottom: 0px; /* 减少底部边距 */
+  margin-top: 0; /* 移除顶部边距 */
+}
 .knowledge-graph-container {
   display: flex;
   flex-direction: column;
@@ -1019,18 +1103,26 @@ const processRelatedNodes = (node) => {
 }
 
 .upload-button {
-  float: right;
-  margin-top: 10px;
+  margin-top: 20px;
+  width: 100%;
+  padding: 10px;
+  background-color: #4caf50; /* 绿色背景 */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
 }
-
 .resources-container {
-  padding: 10px 0;
+  padding: 0px 0;
 }
 
 .resources-title {
   font-size: 16px;
   font-weight: 500;
-  margin-bottom: 16px;
+  margin-bottom: 2px;
   color: #333;
 }
 
@@ -1186,7 +1278,7 @@ const processRelatedNodes = (node) => {
   margin-top: 20px;
   width: 100%;
   padding: 10px;
-  background-color: #4CAF50; /* 绿色背景 */
+  background-color: #4caf50; /* 绿色背景 */
   color: white;
   border: none;
   border-radius: 4px;
@@ -1198,5 +1290,36 @@ const processRelatedNodes = (node) => {
 
 .generate-questions-button:hover {
   background-color: #45a049; /* 鼠标悬停时的背景色 */
+}
+
+.upload-dialog-content {
+  padding: 20px 0;
+}
+
+.upload-tip {
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #606266;
+  text-align: center;
+}
+
+.upload-tip strong {
+  color: #409eff;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 弹窗内的上传组件样式调整 */
+.el-dialog .resource-uploader {
+  width: 100%;
+}
+
+.el-dialog .resource-uploader .el-upload-dragger {
+  width: 100%;
+  height: 160px;
 }
 </style>

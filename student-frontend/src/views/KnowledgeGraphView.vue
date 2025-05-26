@@ -131,7 +131,7 @@
               暂无学习资料
             </p>
             <div v-if="normalResources && normalResources.length > 0">
-              <h4>文档资料</h4>
+              <p class="resources-title">文档资料</p>
               <div v-for="file in normalResources" :key="file.id">
                 <a
                   target="_blank"
@@ -143,7 +143,7 @@
               <br />
             </div>
             <div v-if="videoUrls && videoUrls.length > 0">
-              <h4>视频资料</h4>
+              <p class="resources-title">视频资料</p>
               <div v-for="videoUrl in videoUrls" :key="videoUrl">
                 <p style="margin-bottom: 10px;
                 font-size: 12px;
@@ -1085,7 +1085,7 @@ const handleRelatedNodeHover = (related, isHover) => {
 .resources-title {
   font-size: 16px;
   font-weight: 500;
-  margin-bottom: 16px;
+  margin-bottom: 2px;
   color: #333;
 }
 
